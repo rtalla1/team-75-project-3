@@ -14,14 +14,16 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="flex-1 flex flex-col items-center justify-center p-8">
-      <h1 className="text-3xl font-display tracking-tight mb-2">Employee Login</h1>
-      <p className="text-muted mb-6">Sign in with your authorized Google account.</p>
-      {error && (
-        <p className="text-red-500 text-sm mb-4">
-          Access denied. Your Google account is not registered as an employee.
-        </p>
-      )}
+    <main className="flex-1 flex flex-col items-center justify-center p-8 gap-10">
+      <div className="text-center">
+        <h1 className="text-6xl font-display tracking-tight">Employee Login</h1>
+        <p className="text-muted mt-2">Sign in with your authorized Google account.</p>
+        {error && (
+          <p className="text-red-500 text-sm mt-3">
+            Access denied. Your Google account is not registered as an employee.
+          </p>
+        )}
+      </div>
       <form
         action={async () => {
           "use server";
@@ -30,7 +32,7 @@ export default async function LoginPage({
       >
         <button
           type="submit"
-          className="rounded-lg bg-accent px-6 py-3 text-white font-medium hover:opacity-90 transition"
+          className="rounded-xl bg-accent text-white px-10 py-4 text-lg font-medium hover:bg-accent-dark transition"
         >
           Sign in with Google
         </button>
