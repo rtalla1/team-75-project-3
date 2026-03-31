@@ -1,27 +1,33 @@
 import Link from "next/link";
-
-const interfaces = [
-  { name: "Customer Kiosk", href: "/customer", desc: "Self-service ordering" },
-  { name: "Cashier", href: "/cashier", desc: "Point-of-sale terminal" },
-  { name: "Manager", href: "/manager", desc: "Admin dashboard" },
-];
+import { signIn } from "@/lib/auth";
 
 export default function PortalPage() {
   return (
-    <main className="flex-1 flex flex-col items-center justify-center p-8">
-      <h1 className="text-5xl font-display tracking-tight mb-5">Taro Root</h1>
-      <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 w-full max-w-3xl">
-        {interfaces.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="rounded-xl border border-border bg-card px-5 py-4 hover:border-accent hover:shadow-sm transition"
-          >
-            <div className="font-semibold">{item.name}</div>
-            <div className="text-sm text-muted">{item.desc}</div>
-          </Link>
-        ))}
-      </div>
-    </main>
+    <>
+      <main className="flex-1 flex flex-col items-center justify-center p-8 gap-10">
+        <div className="text-center">
+          <h1 className="text-6xl font-display tracking-tight">Taro Root</h1>
+          <p className="text-muted mt-2">bubble tea & food.</p>
+        </div>
+        <Link
+          href="/order"
+          className="rounded-xl bg-accent text-white px-10 py-4 text-lg font-medium hover:bg-accent-dark transition"
+        >
+          Order from our Menu
+        </Link>
+      </main>
+      <footer className="pb-6 text-center">
+        <form
+          action={async () => {
+            "use server";
+            await signIn("google", { redirectTo: "/login" });
+          }}
+        >
+          <button type="submit" className="text-sm text-muted hover:text-accent transition">
+            Employee Login →
+          </button>
+        </form>
+      </footer>
+    </>
   );
 }

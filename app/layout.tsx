@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import { Mona_Sans, Oranienbaum } from "next/font/google";
-import "../globals.css";
+import "./globals.css";
 
 const monaSans = Mona_Sans({ variable: "--font-sans", subsets: ["latin"] });
 const oranienbaum = Oranienbaum({ variable: "--font-display", weight: "400", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Taro Root",
-  description: "Bubble Tea Shop",
+  description: "Taro Root Bubble Tea",
 };
 
-export default function PortalLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${monaSans.variable} ${oranienbaum.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${monaSans.variable} ${oranienbaum.variable}`}>
       <body className="min-h-screen flex flex-col">{children}</body>
     </html>
   );
