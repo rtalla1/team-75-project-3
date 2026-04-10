@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useEffect as useLayoutEffect } from "react";
+import { useState, useEffect } from "react";
 
 interface MenuItem {
   itemid: number;
@@ -20,14 +20,14 @@ const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
 const TEMP_OPTIONS = ["Hot"];
 const SUGAR_OPTIONS = ["100%", "75%", "50%", "25%", "0%"];
 
-export default function CustomerPage() {
+export default function CashierTerminal() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [addOns, setAddOns] = useState<MenuItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
   const [orderPlaced, setOrderPlaced] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
 
+  // Modal state
   const [customizing, setCustomizing] = useState<MenuItem | null>(null);
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
 
@@ -91,10 +91,9 @@ export default function CustomerPage() {
     await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: cart, total, source: "kiosk" }),
+      body: JSON.stringify({ items: cart, total, source: "cashier" }),
     });
     setCart([]);
-    setCartOpen(false);
     setOrderPlaced(true);
   }
 
@@ -102,7 +101,6 @@ export default function CustomerPage() {
     return (
       <main className="flex-1 flex flex-col items-center justify-center p-8">
         <h1 className="text-3xl font-bold mb-2">Order placed</h1>
-        <p className="text-muted mb-6">Thank you for your order.</p>
         <button
           onClick={() => setOrderPlaced(false)}
           className="rounded-lg bg-accent px-6 py-2 text-white font-medium hover:opacity-90 transition"
@@ -114,26 +112,20 @@ export default function CustomerPage() {
   }
 
   return (
-    <main className="flex-1 flex flex-col relative">
+    <main className="flex-1 flex flex-col lg:flex-row">
+      {/* Menu */}
+      <div className="flex-1 p-6">
+        <h1 className="text-3xl font-display tracking-tight mb-6">Taro Root</h1>
 
-      {/* Centered title */}
-      <div className="text-center py-4 border-b border-border bg-card">
-        <h1 className="text-3xl font-display tracking-tight">Taro Root</h1>
-      </div>
-
-      {/* Body: sidebar + menu */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* Category sidebar */}
-        <div className="w-32 flex flex-col gap-2 p-4 border-r border-border bg-card">
+        <div className="flex gap-2 mb-6">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-2.5 rounded-lg text-sm font-medium text-center transition ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
                 activeCategory === cat
                   ? "bg-accent text-white"
-                  : "border border-border text-muted hover:border-accent"
+                  : "bg-card border border-border text-muted hover:border-accent"
               }`}
             >
               {cat}
@@ -141,75 +133,23 @@ export default function CustomerPage() {
           ))}
         </div>
 
-        {/* Menu grid */}
-        <div className="flex-1 p-6 overflow-y-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {filtered.map((item) => (
-              <button
-                key={item.itemid}
-                onClick={() => handleItemClick(item)}
-                className="text-left rounded-xl border border-border bg-card p-4 hover:border-accent hover:shadow-sm transition"
-              >
-                <div className="font-display font-bold">{item.itemname}</div>
-                <div className="text-sm text-muted mt-1">${Number(item.price).toFixed(2)}</div>
-              </button>
-            ))}
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {filtered.map((item) => (
+            <button
+              key={item.itemid}
+              onClick={() => handleItemClick(item)}
+              className="text-left rounded-xl border border-border bg-card p-4 hover:border-accent hover:shadow-sm transition"
+            >
+              <div className="font-display font-bold">{item.itemname}</div>
+              <div className="text-sm text-muted mt-1">${Number(item.price).toFixed(2)}</div>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Floating cart button — bottom right */}
-      <button
-        onClick={() => setCartOpen(true)}
-        className="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-white font-medium shadow-md hover:opacity-90 transition"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="9" cy="21" r="1" />
-          <circle cx="20" cy="21" r="1" />
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-        </svg>
-        Cart
-        {cart.length > 0 && (
-          <span className="bg-white text-accent text-xs rounded-full px-2 py-0.5 font-medium">
-            {cart.length}
-          </span>
-        )}
-      </button>
-
-      {/* Cart drawer overlay */}
-      {cartOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-40"
-          onClick={() => setCartOpen(false)}
-        />
-      )}
-
-      {/* Cart drawer */}
-      <div
-        className={`fixed top-0 right-0 h-full w-72 bg-card border-l border-border z-50 flex flex-col p-6 transition-transform duration-200 ${
-          cartOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-lg">Your Order</h2>
-          <button
-            onClick={() => setCartOpen(false)}
-            className="text-muted hover:text-foreground transition text-xl leading-none"
-            aria-label="Close cart"
-          >
-            ✕
-          </button>
-        </div>
+      {/* Cart */}
+      <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-border bg-card p-6 flex flex-col">
+        <h2 className="font-bold text-lg mb-4">Your Order</h2>
 
         {cart.length === 0 ? (
           <p className="text-muted text-sm flex-1">No items added yet.</p>
@@ -226,7 +166,7 @@ export default function CustomerPage() {
                       className="hover:text-red-500 transition"
                       aria-label={`Remove ${item.item}`}
                     >
-                      ✕
+                      x
                     </button>
                   </div>
                 </div>
