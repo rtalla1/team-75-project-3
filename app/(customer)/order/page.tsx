@@ -17,7 +17,7 @@ interface CartItem {
 }
 
 const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
-const SUGAR_OPTIONS = ["100%", "75%", "50%", "25%", "0%"];
+const SUGAR_OPTIONS = ["120", "100%", "75%", "50%", "25%", "0%"];
 
 export default function CustomerPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
