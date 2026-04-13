@@ -27,14 +27,27 @@ export async function POST(request: Request) {
         const body = await request.json();
         const name = String(body?.name ?? "").trim();
         const access = String(body?.access ?? "").trim();
-        const emailRaw = String(body?.email ?? "").trim();
-        const email = emailRaw.length > 0 ? emailRaw : null;
+        const age = Number(body?.age);
+        const phone = String(body?.phone ?? "").trim();
+        const password = String(body?.password ?? "").trim();
+        const email = String(body?.email ?? "").trim();
 
-        if (!name || !access) {
-            return Response.json({ error: "name and access are required" }, { status: 400 });
+        if (
+            !name ||
+            !access ||
+            Number.isNaN(age) ||
+            age <= 0 ||
+            !phone ||
+            !password ||
+            !email
+        ) {
+            return Response.json(
+                { error: "name, access, age, phone, password, and email are required" },
+                { status: 400 }
+            );
         }
 
-        const created = await addEmployee(name, access, email);
+        const created = await addEmployee(name, access, age, phone, password, email);
         return Response.json(created, { status: 201 });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

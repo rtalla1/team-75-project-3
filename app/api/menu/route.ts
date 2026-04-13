@@ -30,8 +30,8 @@ export async function POST(request: Request) {
     const description = String(body?.description ?? "").trim();
     const price = Number(body?.price);
 
-    if (!itemName || !category || Number.isNaN(price) || price < 0) {
-      return Response.json({ error: "itemname, category, and price are required" }, { status: 400 });
+    if (!itemName || !category || !description || Number.isNaN(price) || price < 0) {
+      return Response.json({ error: "itemname, category, description, and price are required" }, { status: 400 });
     }
 
     const created = await addMenuItem(itemName, category, price, description);

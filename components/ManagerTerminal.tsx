@@ -6,6 +6,8 @@ interface Employee {
     id: number;
     name: string;
     role: string;
+    age: number;
+    phone: string;
     email: string | null;
 }
 
@@ -27,14 +29,16 @@ interface EmployeeApiItem {
     employeeid: number;
     name: string;
     access: string;
+    age: number;
+    phone: string;
     email: string | null;
 }
 
 interface InventoryApiItem {
-    inventoryid: number;
-    itemname: string;
+    ingredientid: number;
+    ingredientname: string;
     quantity: number;
-    unit: string;
+    units: string;
 }
 
 interface MenuApiItem {
@@ -42,6 +46,7 @@ interface MenuApiItem {
     itemname: string;
     category: string;
     price: number;
+    description: string;
 }
 
 export default function ManagerTerminal() {
@@ -54,15 +59,19 @@ export default function ManagerTerminal() {
 
     const [employeeName, setEmployeeName] = useState("");
     const [employeeRole, setEmployeeRole] = useState("");
+    const [employeeAge, setEmployeeAge] = useState("");
+    const [employeePhone, setEmployeePhone] = useState("");
+    const [employeePassword, setEmployeePassword] = useState("");
     const [employeeEmail, setEmployeeEmail] = useState("");
 
     const [inventoryName, setInventoryName] = useState("");
     const [inventoryQty, setInventoryQty] = useState("");
-    const [inventoryUnit, setInventoryUnit] = useState("");
+    const [inventoryUnits, setInventoryUnits] = useState("");
 
     const [menuName, setMenuName] = useState("");
     const [menuCategory, setMenuCategory] = useState("");
     const [menuPrice, setMenuPrice] = useState("");
+    const [menuDescription, setMenuDescription] = useState("");
 
     useEffect(() => {
         void loadData();
@@ -92,16 +101,18 @@ export default function ManagerTerminal() {
                     id: e.employeeid,
                     name: e.name,
                     role: e.access,
+                    age: Number(e.age),
+                    phone: e.phone,
                     email: e.email,
                 }))
             );
 
             setInventory(
                 inventoryData.map((item) => ({
-                    id: item.inventoryid,
-                    name: item.itemname,
+                    id: item.ingredientid,
+                    name: item.ingredientname,
                     quantity: Number(item.quantity),
-                    unit: item.unit,
+                    unit: item.units,
                 }))
             );
 
@@ -124,14 +135,17 @@ export default function ManagerTerminal() {
     async function addEmployee() {
         const name = employeeName.trim();
         const role = employeeRole.trim();
+        const age = Number(employeeAge);
+        const phone = employeePhone.trim();
+        const password = employeePassword.trim();
         const email = employeeEmail.trim();
-        if (!name || !role || !email) return;
+        if (!name || !role || Number.isNaN(age) || age <= 0 || !phone || !password || !email) return;
 
         try {
             const res = await fetch("/api/employees", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, access: role, email }),
+                body: JSON.stringify({ name, access: role, age, phone, password, email }),
             });
 
             if (!res.ok) {
@@ -145,11 +159,16 @@ export default function ManagerTerminal() {
                     id: created.employeeid,
                     name: created.name,
                     role: created.access,
+                    age: Number(created.age),
+                    phone: created.phone,
                     email: created.email,
                 },
             ]);
             setEmployeeName("");
             setEmployeeRole("");
+            setEmployeeAge("");
+            setEmployeePhone("");
+            setEmployeePassword("");
             setEmployeeEmail("");
             setError(null);
         } catch (err) {
@@ -160,15 +179,15 @@ export default function ManagerTerminal() {
 
     async function addInventoryItem() {
         const name = inventoryName.trim();
-        const unit = inventoryUnit.trim();
+        const units = inventoryUnits.trim();
         const quantity = Number(inventoryQty);
-        if (!name || !unit || Number.isNaN(quantity) || quantity < 0) return;
+        if (!name || !units || Number.isNaN(quantity) || quantity < 0) return;
 
         try {
             const res = await fetch("/api/inventory", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ itemname: name, quantity, unit }),
+                body: JSON.stringify({ ingredientname: name, quantity, units }),
             });
 
             if (!res.ok) {
@@ -179,15 +198,15 @@ export default function ManagerTerminal() {
             setInventory((prev) => [
                 ...prev,
                 {
-                    id: created.inventoryid,
-                    name: created.itemname,
+                    id: created.ingredientid,
+                    name: created.ingredientname,
                     quantity: Number(created.quantity),
-                    unit: created.unit,
+                    unit: created.units,
                 },
             ]);
             setInventoryName("");
             setInventoryQty("");
-            setInventoryUnit("");
+            setInventoryUnits("");
             setError(null);
         } catch (err) {
             const message = err instanceof Error ? err.message : "Failed to add inventory item.";
@@ -199,13 +218,14 @@ export default function ManagerTerminal() {
         const name = menuName.trim();
         const category = menuCategory.trim();
         const price = Number(menuPrice);
-        if (!name || !category || Number.isNaN(price) || price < 0) return;
+        const description = menuDescription.trim();
+        if (!name || !category || Number.isNaN(price) || price < 0 || !description) return;
 
         try {
             const res = await fetch("/api/menu", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ itemname: name, category, price, description: "" }),
+                body: JSON.stringify({ itemname: name, category, price, description }),
             });
 
             if (!res.ok) {
@@ -225,6 +245,7 @@ export default function ManagerTerminal() {
             setMenuName("");
             setMenuCategory("");
             setMenuPrice("");
+            setMenuDescription("");
             setError(null);
         } catch (err) {
             const message = err instanceof Error ? err.message : "Failed to add menu item.";
@@ -246,7 +267,7 @@ export default function ManagerTerminal() {
 
     async function deleteInventoryById(id: number) {
         try {
-            const res = await fetch(`/api/inventory?inventoryId=${id}`, { method: "DELETE" });
+            const res = await fetch(`/api/inventory?ingredientId=${id}`, { method: "DELETE" });
             if (!res.ok) throw new Error("Failed to delete inventory item");
             setInventory((prev) => prev.filter((i) => i.id !== id));
             setError(null);
@@ -301,6 +322,27 @@ export default function ManagerTerminal() {
                             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
                         />
                         <input
+                            type="number"
+                            min="1"
+                            value={employeeAge}
+                            onChange={(e) => setEmployeeAge(e.target.value)}
+                            placeholder="Age"
+                            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                        />
+                        <input
+                            value={employeePhone}
+                            onChange={(e) => setEmployeePhone(e.target.value)}
+                            placeholder="Phone"
+                            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                        />
+                        <input
+                            type="password"
+                            value={employeePassword}
+                            onChange={(e) => setEmployeePassword(e.target.value)}
+                            placeholder="Password"
+                            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                        />
+                        <input
                             type="email"
                             value={employeeEmail}
                             onChange={(e) => setEmployeeEmail(e.target.value)}
@@ -323,7 +365,8 @@ export default function ManagerTerminal() {
                             >
                                 <div>
                                     <p className="text-sm font-medium">{employee.name}</p>
-                                    <p className="text-xs text-muted">{employee.role}</p>
+                                    <p className="text-xs text-muted">{employee.role} • Age {employee.age}</p>
+                                    <p className="text-xs text-muted">{employee.phone}</p>
                                     <p className="text-xs text-muted">{employee.email ?? "No email"}</p>
                                 </div>
                                 <button
@@ -356,9 +399,9 @@ export default function ManagerTerminal() {
                             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
                         />
                         <input
-                            value={inventoryUnit}
-                            onChange={(e) => setInventoryUnit(e.target.value)}
-                            placeholder="Unit (bags, gallons, etc.)"
+                            value={inventoryUnits}
+                            onChange={(e) => setInventoryUnits(e.target.value)}
+                            placeholder="Units (bags, gallons, etc.)"
                             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
                         />
                         <button
@@ -415,6 +458,12 @@ export default function ManagerTerminal() {
                             value={menuPrice}
                             onChange={(e) => setMenuPrice(e.target.value)}
                             placeholder="Price"
+                            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                        />
+                        <input
+                            value={menuDescription}
+                            onChange={(e) => setMenuDescription(e.target.value)}
+                            placeholder="Description"
                             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
                         />
                         <button

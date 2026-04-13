@@ -29,15 +29,15 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const itemName = String(body?.itemname ?? "").trim();
-        const unit = String(body?.unit ?? "").trim();
+        const ingredientName = String(body?.ingredientname ?? "").trim();
+        const units = String(body?.units ?? "").trim();
         const quantity = Number(body?.quantity);
 
-        if (!itemName || !unit || Number.isNaN(quantity) || quantity < 0) {
-            return Response.json({ error: "itemname, quantity, and unit are required" }, { status: 400 });
+        if (!ingredientName || !units || Number.isNaN(quantity) || quantity < 0) {
+            return Response.json({ error: "ingredientname, quantity, and units are required" }, { status: 400 });
         }
 
-        const created = await addInventoryItem(itemName, quantity, unit);
+        const created = await addInventoryItem(ingredientName, quantity, units);
         return Response.json(created, { status: 201 });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -52,13 +52,13 @@ export async function DELETE(request: Request) {
 
     try {
         const { searchParams } = new URL(request.url);
-        const inventoryId = Number(searchParams.get("inventoryId"));
+        const ingredientId = Number(searchParams.get("ingredientId"));
 
-        if (!Number.isInteger(inventoryId)) {
-            return Response.json({ error: "inventoryId query param is required" }, { status: 400 });
+        if (!Number.isInteger(ingredientId)) {
+            return Response.json({ error: "ingredientId query param is required" }, { status: 400 });
         }
 
-        await deleteInventoryItem(inventoryId);
+        await deleteInventoryItem(ingredientId);
         return Response.json({ ok: true });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
