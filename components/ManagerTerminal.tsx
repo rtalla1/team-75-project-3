@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Employee {
     id: number;
     name: string;
     role: string;
+    email: string | null;
 }
 
 interface InventoryItem {
@@ -22,35 +23,38 @@ interface ManagerMenuItem {
     price: number;
 }
 
-const INITIAL_EMPLOYEES: Employee[] = [
-    { id: 1, name: "Alex Kim", role: "Cashier" },
-    { id: 2, name: "Jordan Lee", role: "Barista" },
-    { id: 3, name: "Morgan Chen", role: "Shift Lead" },
-];
+interface EmployeeApiItem {
+    employeeid: number;
+    name: string;
+    access: string;
+    email: string | null;
+}
 
-const INITIAL_INVENTORY: InventoryItem[] = [
-    { id: 1, name: "Taro Powder", quantity: 12, unit: "bags" },
-    { id: 2, name: "Whole Milk", quantity: 18, unit: "gallons" },
-    { id: 3, name: "Boba Pearls", quantity: 9, unit: "containers" },
-];
+interface InventoryApiItem {
+    inventoryid: number;
+    itemname: string;
+    quantity: number;
+    unit: string;
+}
 
-const INITIAL_MENU: ManagerMenuItem[] = [
-    { id: 1, name: "Classic Milk Tea", category: "Classic Drink", price: 5.5 },
-    { id: 2, name: "Strawberry Fruit Tea", category: "Fruit Drink", price: 5.75 },
-    { id: 3, name: "Popcorn Chicken", category: "Food", price: 6.95 },
-];
-
-function getNextId<T extends { id: number }>(items: T[]) {
-    return items.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+interface MenuApiItem {
+    itemid: number;
+    itemname: string;
+    category: string;
+    price: number;
 }
 
 export default function ManagerTerminal() {
-    const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
-    const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
-    const [menuItems, setMenuItems] = useState<ManagerMenuItem[]>(INITIAL_MENU);
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [inventory, setInventory] = useState<InventoryItem[]>([]);
+    const [menuItems, setMenuItems] = useState<ManagerMenuItem[]>([]);
+
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const [employeeName, setEmployeeName] = useState("");
     const [employeeRole, setEmployeeRole] = useState("");
+    const [employeeEmail, setEmployeeEmail] = useState("");
 
     const [inventoryName, setInventoryName] = useState("");
     const [inventoryQty, setInventoryQty] = useState("");
@@ -60,43 +64,224 @@ export default function ManagerTerminal() {
     const [menuCategory, setMenuCategory] = useState("");
     const [menuPrice, setMenuPrice] = useState("");
 
-    function addEmployee() {
-        const name = employeeName.trim();
-        const role = employeeRole.trim();
-        if (!name || !role) return;
+    useEffect(() => {
+        void loadData();
+    }, []);
 
-        setEmployees((prev) => [...prev, { id: getNextId(prev), name, role }]);
-        setEmployeeName("");
-        setEmployeeRole("");
+    async function loadData() {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const [employeesRes, inventoryRes, menuRes] = await Promise.all([
+                fetch("/api/employees"),
+                fetch("/api/inventory"),
+                fetch("/api/menu"),
+            ]);
+
+            if (!employeesRes.ok || !inventoryRes.ok || !menuRes.ok) {
+                throw new Error("Failed to fetch manager data.");
+            }
+
+            const employeesData = (await employeesRes.json()) as EmployeeApiItem[];
+            const inventoryData = (await inventoryRes.json()) as InventoryApiItem[];
+            const menuData = (await menuRes.json()) as MenuApiItem[];
+
+            setEmployees(
+                employeesData.map((e) => ({
+                    id: e.employeeid,
+                    name: e.name,
+                    role: e.access,
+                    email: e.email,
+                }))
+            );
+
+            setInventory(
+                inventoryData.map((item) => ({
+                    id: item.inventoryid,
+                    name: item.itemname,
+                    quantity: Number(item.quantity),
+                    unit: item.unit,
+                }))
+            );
+
+            setMenuItems(
+                menuData.map((item) => ({
+                    id: item.itemid,
+                    name: item.itemname,
+                    category: item.category,
+                    price: Number(item.price),
+                }))
+            );
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to load manager data.";
+            setError(message);
+        } finally {
+            setLoading(false);
+        }
     }
 
-    function addInventoryItem() {
+    async function addEmployee() {
+        const name = employeeName.trim();
+        const role = employeeRole.trim();
+        const email = employeeEmail.trim();
+        if (!name || !role || !email) return;
+
+        try {
+            const res = await fetch("/api/employees", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, access: role, email }),
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to add employee");
+            }
+
+            const created = (await res.json()) as EmployeeApiItem;
+            setEmployees((prev) => [
+                ...prev,
+                {
+                    id: created.employeeid,
+                    name: created.name,
+                    role: created.access,
+                    email: created.email,
+                },
+            ]);
+            setEmployeeName("");
+            setEmployeeRole("");
+            setEmployeeEmail("");
+            setError(null);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to add employee.";
+            setError(message);
+        }
+    }
+
+    async function addInventoryItem() {
         const name = inventoryName.trim();
         const unit = inventoryUnit.trim();
         const quantity = Number(inventoryQty);
         if (!name || !unit || Number.isNaN(quantity) || quantity < 0) return;
 
-        setInventory((prev) => [...prev, { id: getNextId(prev), name, quantity, unit }]);
-        setInventoryName("");
-        setInventoryQty("");
-        setInventoryUnit("");
+        try {
+            const res = await fetch("/api/inventory", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ itemname: name, quantity, unit }),
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to add inventory item");
+            }
+
+            const created = (await res.json()) as InventoryApiItem;
+            setInventory((prev) => [
+                ...prev,
+                {
+                    id: created.inventoryid,
+                    name: created.itemname,
+                    quantity: Number(created.quantity),
+                    unit: created.unit,
+                },
+            ]);
+            setInventoryName("");
+            setInventoryQty("");
+            setInventoryUnit("");
+            setError(null);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to add inventory item.";
+            setError(message);
+        }
     }
 
-    function addMenuItem() {
+    async function addMenuItem() {
         const name = menuName.trim();
         const category = menuCategory.trim();
         const price = Number(menuPrice);
         if (!name || !category || Number.isNaN(price) || price < 0) return;
 
-        setMenuItems((prev) => [...prev, { id: getNextId(prev), name, category, price }]);
-        setMenuName("");
-        setMenuCategory("");
-        setMenuPrice("");
+        try {
+            const res = await fetch("/api/menu", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ itemname: name, category, price, description: "" }),
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to add menu item");
+            }
+
+            const created = (await res.json()) as MenuApiItem;
+            setMenuItems((prev) => [
+                ...prev,
+                {
+                    id: created.itemid,
+                    name: created.itemname,
+                    category: created.category,
+                    price: Number(created.price),
+                },
+            ]);
+            setMenuName("");
+            setMenuCategory("");
+            setMenuPrice("");
+            setError(null);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to add menu item.";
+            setError(message);
+        }
+    }
+
+    async function deleteEmployeeById(id: number) {
+        try {
+            const res = await fetch(`/api/employees?employeeId=${id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Failed to delete employee");
+            setEmployees((prev) => prev.filter((e) => e.id !== id));
+            setError(null);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to delete employee.";
+            setError(message);
+        }
+    }
+
+    async function deleteInventoryById(id: number) {
+        try {
+            const res = await fetch(`/api/inventory?inventoryId=${id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Failed to delete inventory item");
+            setInventory((prev) => prev.filter((i) => i.id !== id));
+            setError(null);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to delete inventory item.";
+            setError(message);
+        }
+    }
+
+    async function deleteMenuById(id: number) {
+        try {
+            const res = await fetch(`/api/menu?itemId=${id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Failed to delete menu item");
+            setMenuItems((prev) => prev.filter((m) => m.id !== id));
+            setError(null);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to delete menu item.";
+            setError(message);
+        }
     }
 
     return (
         <main className="flex-1 p-6 md:p-8">
             <h1 className="text-3xl font-display tracking-tight mb-6">Manager Terminal</h1>
+
+            <div className="mb-4 flex items-center gap-4">
+                {loading && <p className="text-sm text-muted">Loading manager data...</p>}
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <button
+                    onClick={loadData}
+                    className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-accent transition"
+                >
+                    Refresh
+                </button>
+            </div>
 
             <div className="grid gap-6 lg:grid-cols-3">
                 <section className="rounded-xl border border-border bg-card p-4 flex flex-col">
@@ -113,6 +298,13 @@ export default function ManagerTerminal() {
                             value={employeeRole}
                             onChange={(e) => setEmployeeRole(e.target.value)}
                             placeholder="Role"
+                            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                        />
+                        <input
+                            type="email"
+                            value={employeeEmail}
+                            onChange={(e) => setEmployeeEmail(e.target.value)}
+                            placeholder="Email"
                             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
                         />
                         <button
@@ -132,9 +324,10 @@ export default function ManagerTerminal() {
                                 <div>
                                     <p className="text-sm font-medium">{employee.name}</p>
                                     <p className="text-xs text-muted">{employee.role}</p>
+                                    <p className="text-xs text-muted">{employee.email ?? "No email"}</p>
                                 </div>
                                 <button
-                                    onClick={() => setEmployees((prev) => prev.filter((e) => e.id !== employee.id))}
+                                    onClick={() => void deleteEmployeeById(employee.id)}
                                     className="text-xs text-red-600 hover:underline"
                                 >
                                     Delete
@@ -189,7 +382,7 @@ export default function ManagerTerminal() {
                                     </p>
                                 </div>
                                 <button
-                                    onClick={() => setInventory((prev) => prev.filter((i) => i.id !== item.id))}
+                                    onClick={() => void deleteInventoryById(item.id)}
                                     className="text-xs text-red-600 hover:underline"
                                 >
                                     Delete
@@ -245,7 +438,7 @@ export default function ManagerTerminal() {
                                     </p>
                                 </div>
                                 <button
-                                    onClick={() => setMenuItems((prev) => prev.filter((m) => m.id !== item.id))}
+                                    onClick={() => void deleteMenuById(item.id)}
                                     className="text-xs text-red-600 hover:underline"
                                 >
                                     Delete
