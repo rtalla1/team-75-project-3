@@ -349,6 +349,9 @@ export default function CustomerPage() {
       )}
 
       {/* chatbot window */}
+      <div className="fixed bottom-4 left-4">
+        <ChatbotWindow/>
+      </div>
     </main>
   );
 }
@@ -358,7 +361,8 @@ function ChatbotWindow(): ReactNode {
     {id: "", message: "Hello I'm Tara! What can I help you with today?"}
   ]); 
   const [message, setMessage] = useState<string>("")
-  
+  const [isOpen, setOpen] = useState<boolean>(false);
+
   async function sendChatbotMessage(message: string) {
     if (!message) {return}
 
@@ -368,12 +372,15 @@ function ChatbotWindow(): ReactNode {
     };
 
     setMessage("");
-    setConversation([...conversation, req]);
+    setConversation(prev => [...prev, req]);
+    console.log(conversation);
 
     const result = await fetch("/api/ai", {
       method: 'POST',
       body: JSON.stringify(req)
     });
+
+    console.log(result);
 
     if(!result.ok){
        //TODO, SHOW A SMALL RED ERROR SNACKBAR POPUP (react)
@@ -381,24 +388,33 @@ function ChatbotWindow(): ReactNode {
        return;
     };
     const body: ChatMessage = await result.json();
-    setConversation([...conversation, body]);
+    console.log(conversation);
+    setConversation(prev => [...prev, body]);
   }
 
   //TODO color everything correctly
   return (
-    <div className="w-[32rem] h-[32rem] flex flex-col gap-0 rounded-[1rem]">
-      <div className="p-1 font-bold text-base items-center justify-center">
+    <div className={`${ isOpen ? "w-[32rem] h-[32rem]" : "w-[8rem] h-[8rem]"} flex flex-col gap-0 rounded-[2rem] bg-red-100 overflow-hidden`}>
+      <div className="pl-4 pt-3 p-2 font-bold text-base bg-green-100 flex justify-between">
         Tara Chatbot
+        <button
+          onClick={(e) => setOpen(!isOpen)}
+        >
+          ↕️
+        </button>
       </div>
-      <div className="w-full h-full overflow-auto">
+      <div className="w-full h-full overflow-auto flex flex-col gap-2"> 
+        <div className="h-[3rem]"></div>
         {conversation.map((cm, index) => {
-          const f = 'w-[50%]' + (index % 2 == 0 ? "self-start" : "self-end")
-          return <div className={f}>
+          const f = 'w-[50%] p-4 bg-yellow-100 rounded-xl mx-3' + ' ' + 
+                    (index % 2 == 0 ? "self-start" : "self-end") 
+          return <div className={f} key={cm.id + cm.message}>
             {cm.message}
           </div>
         })}
+        <div className="h-[3rem]"></div>
       </div>
-      <div className="bottom-1 mx-1 p-1 relative backdrop-blur-md rounded-xl shadow-sm flex flex-row justify-center gap-1 h-auto">
+      <div className="bottom-4 mx-2 p-1 border-1 border-green-100 relative backdrop-blur-md rounded-[32rem] shadow-md flex flex-row justify-center gap-1 h-auto w-fill">
         <textarea 
           className="field-sizing-content w-fill appearance-none bg-transparent border-none focus:ring-0 focus:outline-none"
           placeholder="Ask anything"
@@ -409,7 +425,7 @@ function ChatbotWindow(): ReactNode {
         <button
           className="rounded-xl w-8 h-8 border-none" 
           onClick={() => sendChatbotMessage(message)}
-        ></button>
+        >↩️</button>
       </div>
     </div>
   )
