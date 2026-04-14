@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useEffect as useLayoutEffect } from "react";
+import { useState, useEffect, useRef, useEffect as useLayoutEffect, ReactNode } from "react";
 
 interface MenuItem {
   itemid: number;
@@ -15,6 +15,12 @@ interface CartItem {
   price: number;
   addOns: string[];
 }
+
+interface ChatMessage {
+  message: string,
+  id: string
+}
+
 
 const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
 const SUGAR_OPTIONS = ["120%", "100%", "75%", "50%", "25%", "0%"];
@@ -341,6 +347,70 @@ export default function CustomerPage() {
           </div>
         </div>
       )}
+
+      {/* chatbot window */}
     </main>
   );
+}
+
+function ChatbotWindow(): ReactNode {
+  const [conversation, setConversation] = useState<ChatMessage[]>([
+    {id: "", message: "Hello I'm Tara! What can I help you with today?"}
+  ]); 
+  const [message, setMessage] = useState<string>("")
+  
+  async function sendChatbotMessage(message: string) {
+    if (!message) {return}
+
+    const req: ChatMessage = {
+      id: (conversation.length == 0) ? "" : conversation[conversation.length - 1].id,
+      message: message
+    };
+
+    setMessage("");
+    setConversation([...conversation, req]);
+
+    const result = await fetch("/api/ai", {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+
+    if(!result.ok){
+       //TODO, SHOW A SMALL RED ERROR SNACKBAR POPUP (react)
+       setMessage(message);
+       return;
+    };
+    const body: ChatMessage = await result.json();
+    setConversation([...conversation, body]);
+  }
+
+  //TODO color everything correctly
+  return (
+    <div className="w-[32rem] h-[32rem] flex flex-col gap-0 rounded-[1rem]">
+      <div className="p-1 font-bold text-base items-center justify-center">
+        Tara Chatbot
+      </div>
+      <div className="w-full h-full overflow-auto">
+        {conversation.map((cm, index) => {
+          const f = 'w-[50%]' + (index % 2 == 0 ? "self-start" : "self-end")
+          return <div className={f}>
+            {cm.message}
+          </div>
+        })}
+      </div>
+      <div className="bottom-1 mx-1 p-1 relative backdrop-blur-md rounded-xl shadow-sm flex flex-row justify-center gap-1 h-auto">
+        <textarea 
+          className="field-sizing-content w-fill appearance-none bg-transparent border-none focus:ring-0 focus:outline-none"
+          placeholder="Ask anything"
+          onChange={(e) => setMessage(e.target.value)}
+          rows={3}
+        ></textarea>
+        {/* TODO give this button a gradient background and white send icon*/}
+        <button
+          className="rounded-xl w-8 h-8 border-none" 
+          onClick={() => sendChatbotMessage(message)}
+        ></button>
+      </div>
+    </div>
+  )
 }

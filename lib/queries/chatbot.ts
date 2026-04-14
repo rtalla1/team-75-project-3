@@ -29,7 +29,7 @@ export async function continueConversation(message: ChatMessage): Promise<Result
 
     const result = await openai.responses.create({
         model: 'gpt-5.4-nano',
-        input: (message.id == null ? SYSTEM_PROMPT : "") + message,
+        input: (message.id == "" ? SYSTEM_PROMPT : "") + message,
         previous_response_id: message.id
     })
 
