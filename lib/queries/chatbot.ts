@@ -8,24 +8,39 @@ The customers first prompt is also given.
 Do not respond in markdown, only plain unformatted text.
 `
 
+export type ChatMessage = {
+    message: string,
+    id: string
+}
+
+type Result = {
+    id: string, 
+    response: string,
+    ok: boolean,
+    error: string,
+    errorCode: number
+}
+
 //only return the response string
-async function continueConversation(messages: any[]): Promise<string> {
+export async function continueConversation(message: ChatMessage): Promise<Result> {
     const openai = new OpenAI({
         apiKey: process.env.OPENAI_KEY
     })
 
-    var convo: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
-    if (messages.length == 1) {
-        convo.push({
-            role: "system",
-            content: SYSTEM_PROMPT
-        })
-    }
-    
-    const result = await openai.chat.completions.create({
+    const result = await openai.responses.create({
         model: 'gpt-5.4-nano',
-        messages: convo
-    });
+        input: (message.id == null ? SYSTEM_PROMPT : "") + message,
+        previous_response_id: message.id
+    })
 
-    return result.choices[0].message.content ?? "An Error Occurerd";
+    const curId = result.id;
+    const resp = result.output_text
+    
+    return {
+        id: curId,
+        response: resp,
+        ok: result.error == null ? true : false,
+        error: result.error?.message ?? "",
+        errorCode: result.error?.code ?? 200,
+    } as Result;
 }
