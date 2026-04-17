@@ -114,7 +114,7 @@ export default function CustomerPage() {
     else if (weather.temperature_2m >= 90) return "Strawberry Smoothie";
     else if (weather.temperature_2m < 50) return "Hot Honey Milk Tea";
     else if (weather.precipitation > 0.1) return "Hokkaido Milk Tea";
-    else if (weather.cloud_cover >= 50 && weather.precipitation <= 0.1) {
+    else if (weather.cloud_cover >= 40 && weather.precipitation <= 0.1) {
       return "Wintermelon Milk Tea";
     }
     else if (weather.temperature_2m >= 80) return "Mango Green Tea";
@@ -191,7 +191,6 @@ export default function CustomerPage() {
 
                 {/* New Recommendation Text */}
                 <div className="mt-3 pt-3 border-t border-border/50 font-semibold normal-case leading-tight">
-                  <span className="block text-accent font-bold not-italic mb-0.5">STAFF PICK:</span>
                   Try our <span className="text-foreground not-italic">{getWeatherRecommendation()}</span>
                 </div>
               </>
