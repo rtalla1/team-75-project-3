@@ -66,6 +66,7 @@ export default function ManagerTerminal() {
     const [error, setError] = useState<string | null>(null);
     const [activeModal, setActiveModal] = useState<ModalType>(null);
 
+    //field for adding employees, inventory, and menu items
     const [employeeForm, setEmployeeForm] = useState({
         name: "",
         access: "",
@@ -95,6 +96,7 @@ export default function ManagerTerminal() {
         void loadData();
     }, []);
 
+    //populate data from database
     async function loadData() {
         setLoading(true);
         setError(null);
@@ -257,6 +259,7 @@ export default function ManagerTerminal() {
             return;
         }
 
+        //mapping new menu items to ingredients for automatically updating inventory
         const ingredientMappings: IngredientMappingInput[] = [];
         for (const row of menuIngredientRows) {
             const ingredientid = Number(row.ingredientid);
@@ -316,6 +319,7 @@ export default function ManagerTerminal() {
         setMenuIngredientRows((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
     }
 
+    //removing employees, inventory, and menu items
     async function deleteEmployeeById(id: number) {
         try {
             const res = await fetch(`/api/employees?employeeId=${id}`, { method: "DELETE" });
@@ -376,6 +380,7 @@ export default function ManagerTerminal() {
                 </Link>
             </div>
 
+             {/* creating ui from modals*/}
             <div className="grid gap-6 lg:grid-cols-3">
                 <section className="rounded-xl border border-border bg-card p-4 flex flex-col">
                     <div className="mb-3 flex items-center justify-between">

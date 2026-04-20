@@ -9,6 +9,7 @@ export async function submitOrder(
   employeeId: number | null = null
 ): Promise<string> {
   const orderDetails = JSON.stringify({ items });
+  //query the database
   const { rows } = await pool.query(
     `INSERT INTO orderhistory (orderid, time, orderdetails, price, employeeid, status, source, customer_name)
      VALUES (gen_random_uuid(), NOW(), $1::jsonb, $2, $3, 'pending', $4, $5)

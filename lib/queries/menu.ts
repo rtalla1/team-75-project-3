@@ -39,6 +39,7 @@ export async function addMenuItem(
 
     const createdItem = rows[0] as MenuItem;
 
+    //create the ingredient mapping for new menu item
     for (const mapping of ingredientMappings) {
       await client.query(
         "INSERT INTO menuingredientsmap (itemid, ingredientid, quantity) VALUES ($1, $2, $3)",

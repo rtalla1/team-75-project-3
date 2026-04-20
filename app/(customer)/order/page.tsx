@@ -244,7 +244,7 @@ export default function CustomerPage() {
                   <div className="text-accent font-medium">Rain: {weather.precipitation}"</div>
                 )}
 
-                {/* New Recommendation Text */}
+                {/* Recommendation Text */}
                 <button
                   onClick={openRecommendation}
                   className="text-left mt-3 pt-3 border-t border-border/50 font-semibold normal-case leading-tight hover:text-accent transition"
@@ -307,9 +307,6 @@ export default function CustomerPage() {
         )}
       </button>
 
-      {/* Cart Drawer & Modals remain the same... */}
-      {/* (Skipping identical modal code for brevity, ensure you keep your existing modal JSX here) */}
-      
       {/* Cart drawer overlay */}
       {cartOpen && <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setCartOpen(false)} />}
 
@@ -408,6 +405,27 @@ export default function CustomerPage() {
             )}
             <p className="text-base text-muted mb-5">${Number(customizing.price).toFixed(2)}</p>
 
+            {/* Temperature */}
+            {customizing.category === "Classic Drink" && (
+              <>
+              <p className="text-sm font-medium mb-2">Temperature</p>
+              <div className="flex gap-2 mb-5">
+                <button
+                  key="Hot"
+                  onClick={() => toggleAddOn("Hot")}
+                  className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${
+                    selectedAddOns.includes("Hot")
+                      ? "border-accent bg-accent-light text-accent"
+                      : "border-border text-muted hover:border-accent"
+                  }`}
+                >
+                  {"Hot"}
+                </button>
+              </div>
+              </>
+            )}
+
+            {/* Sugar levels */}
             <p className="text-sm font-medium mb-2">Sugar Level</p>
             <div className="grid grid-cols-3 gap-2 mb-5">
               {SUGAR_OPTIONS.map((s) => (

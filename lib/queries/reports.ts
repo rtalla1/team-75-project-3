@@ -34,6 +34,7 @@ function getPastDayKeys(days: number): string[] {
     return keys;
 }
 
+//check stats per hour
 function fillHourly(rows: Array<{ hour: number; orders: number; revenue: number }>): HourlyMetric[] {
     const byHour = new Map(rows.map((r) => [Number(r.hour), r]));
     return Array.from({ length: 24 }, (_, hour) => {
@@ -46,6 +47,7 @@ function fillHourly(rows: Array<{ hour: number; orders: number; revenue: number 
     });
 }
 
+//pull sales history
 export async function getSalesHistory(days: number = 14): Promise<DailyMetric[]> {
     const { rows } = await pool.query(
         `SELECT DATE("time")::text AS day,
@@ -71,6 +73,7 @@ export async function getSalesHistory(days: number = 14): Promise<DailyMetric[]>
     });
 }
 
+//pull inventory usage
 export async function getInventoryUsageHistory(days: number = 14): Promise<DailyMetric[]> {
     const { rows } = await pool.query(
         `SELECT DATE(oh."time")::text AS day,
@@ -114,6 +117,7 @@ async function getHourlyMetrics(fromIso: string, toIso: string): Promise<HourlyM
     return fillHourly(rows as Array<{ hour: number; orders: number; revenue: number }>);
 }
 
+//check if z report previously generated
 export async function hasZReportToday(): Promise<boolean> {
     const { rows } = await pool.query(
         "SELECT id FROM zreport_log WHERE report_date = CURRENT_DATE LIMIT 1"
@@ -122,6 +126,7 @@ export async function hasZReportToday(): Promise<boolean> {
 }
 
 export async function generateXReport(): Promise<ReportDetails> {
+     //query the database
     const { rows: resetRows } = await pool.query(
         `SELECT COALESCE(MAX(generated_at), CURRENT_DATE::timestamptz) AS reset_at
      FROM zreport_log
@@ -149,7 +154,7 @@ export async function generateZReport(): Promise<ReportDetails> {
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
-
+        //query the database
         const { rows: existing } = await client.query(
             "SELECT id FROM zreport_log WHERE report_date = CURRENT_DATE LIMIT 1"
         );

@@ -47,7 +47,7 @@ function ChartCard({
     colorClass: string;
 }) {
     const max = Math.max(1, ...data.map((d) => Number(value(d))));
-
+    //create stats chart
     return (
         <section className="rounded-xl border border-border bg-card p-4">
             <h3 className="font-bold mb-3">{title}</h3>
@@ -98,6 +98,7 @@ export default function ManagerStatsDashboard() {
         void loadStats();
     }, []);
 
+    //call report generation functions
     async function generateReport(type: "x" | "z") {
         setReportLoading(type);
         setError(null);
