@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import GoogleTranslate from "@/components/GoogleTranslate";
 
 interface MenuItem {
   itemid: number;
@@ -31,6 +32,13 @@ interface WeatherData {
 
 const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
 const SUGAR_OPTIONS = ["120%", "100%", "75%", "50%", "25%", "0%"];
+
+declare global {
+  interface Window {
+    googleTranslateElementInit: () => void;
+    google: any;
+  }
+}
 
 export default function CustomerPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
@@ -209,8 +217,11 @@ export default function CustomerPage() {
   return (
     <main className="flex-1 flex flex-col relative h-screen">
 
-      <div className="text-center py-4 border-b border-border bg-card">
+      <div className="relative flex items-center justify-center py-4 border-b border-border bg-card">
         <h1 className="text-3xl font-display tracking-tight">Taro Root</h1>
+        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+          <GoogleTranslate />
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
