@@ -16,22 +16,6 @@ export async function POST(request: Request) {
     }
     
     const res = await continueConversation({message, id});
-    //dummy code
-    // const res = {
-    //   id: "f9d8ahsas7897a6fsh",
-    //   response: "some response from the ai",
-    //   ok: true,
-    //   error: "none",
-    //   errorCode: 200
-    // } as {
-    //   id: string, 
-    //   response: string,
-    //   ok: boolean,
-    //   error: string,
-    //   errorCode: number
-    // }
-    
-    console.log(res);
 
     if (!res.ok) {
       return Response.json({ error: res.error }, { status: res.errorCode });

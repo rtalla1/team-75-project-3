@@ -1,4 +1,5 @@
 import OpenAI from "openai"
+import { getMenu } from "./menu"
 
 const SYSTEM_PROMPT = `
 You are a assistant chatbot for a boba shop called Taro Root. You have been 
@@ -27,6 +28,20 @@ export async function continueConversation(message: ChatMessage): Promise<Result
     apiKey: process.env.OPENAI_KEY
   })
   
+  let messageToSend = message.message;
+  if (message.id == "") {
+    messageToSend += "\n\n";
+    const menuFetch = await getMenu();
+    menuFetch.forEach((item) => {
+      messageToSend += "Item Name: " + item.itemname;
+      messageToSend += "Item Description: " + item.description;
+      messageToSend += "Item Category: " + item.category;
+      messageToSend += "Item Price: " + item.price + "\n\n";
+    });
+  }
+
+  console.log("Message to send: " + messageToSend);
+
   const result = await openai.responses.create({
     model: 'gpt-5.4-nano',
     input: (message.id == "" ? SYSTEM_PROMPT : "") + message.message,

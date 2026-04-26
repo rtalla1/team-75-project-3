@@ -356,77 +356,217 @@ export default function CustomerPage() {
   );
 }
 
+type ToastState = { visible: boolean; message: string };
+
 function ChatbotWindow(): ReactNode {
   const [conversation, setConversation] = useState<ChatMessage[]>([
-    {id: "", message: "Hello I'm Tara! What can I help you with today?"}
-  ]); 
-  const [message, setMessage] = useState<string>("")
-  const [isOpen, setOpen] = useState<boolean>(false);
-
-  async function sendChatbotMessage(message: string) {
-    if (!message) {return}
-
-    const req: ChatMessage = {
-      id: (conversation.length == 0) ? "" : conversation[conversation.length - 1].id,
-      message: message
-    };
-
-    setMessage("");
-    setConversation(prev => [...prev, req]);
-    console.log(conversation);
-
-    const result = await fetch("/api/ai", {
-      method: 'POST',
-      body: JSON.stringify(req)
-    });
-
-    console.log(result);
-
-    if(!result.ok){
-       //TODO, SHOW A SMALL RED ERROR SNACKBAR POPUP (react)
-       setMessage(message);
-       return;
-    };
-    const body: ChatMessage = await result.json();
-    console.log(conversation);
-    setConversation(prev => [...prev, body]);
+    { id: "init", message: "Hello! I'm Tara. What can I help you with today?" },
+  ]);
+  const [message, setMessage] = useState<string>("");
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [toast, setToast] = useState<ToastState>({ visible: false, message: "" });
+ 
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+ 
+  useEffect(() => {
+    if (isOpen) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [conversation, isOpen]);
+ 
+  function showToast(msg: string) {
+    setToast({ visible: true, message: msg });
+    setTimeout(() => setToast({ visible: false, message: "" }), 3500);
   }
-
-  //TODO color everything correctly
+ 
+  async function sendChatbotMessage(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || isLoading) return;
+ 
+    const lastId = conversation[conversation.length - 1]?.id ?? "";
+    const req: ChatMessage = { id: lastId, message: trimmed };
+ 
+    setMessage("");
+    setIsLoading(true);
+    setConversation((prev) => [...prev, req]);
+ 
+    try {
+      const result = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+      });
+ 
+      if (!result.ok) {
+        setMessage(trimmed);
+        setConversation((prev) => prev.slice(0, -1));
+        showToast("Something went wrong. Please try again.");
+        return;
+      }
+ 
+      const body: ChatMessage = await result.json();
+      setConversation((prev) => [...prev, body]);
+    } catch {
+      setMessage(trimmed);
+      setConversation((prev) => prev.slice(0, -1));
+      showToast("Network error. Please check your connection.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+ 
+  function handleKeyDown(e: any) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendChatbotMessage(message);
+    }
+  }
+ 
   return (
-    <div className={`${ isOpen ? "w-[32rem] h-[32rem]" : "w-[8rem] h-[8rem]"} flex flex-col gap-0 rounded-[2rem] bg-red-100 overflow-hidden`}>
-      <div className="pl-4 pt-3 p-2 font-bold text-base bg-green-100 flex justify-between">
-        Tara Chatbot
+    <div
+      className="h-auto flex flex-col gap-0 rounded-[2rem] overflow-hidden shadow-lg"
+      style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+    >
+      {/* Toast */}
+      <div
+        className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300"
+        style={{
+          background: "#ef4444",
+          color: "#fff",
+          opacity: toast.visible ? 1 : 0,
+          pointerEvents: toast.visible ? "auto" : "none",
+          transform: toast.visible
+            ? "translateX(-50%) translateY(0)"
+            : "translateX(-50%) translateY(-8px)",
+        }}
+        role="alert"
+        aria-live="assertive"
+      >
+        {toast.message}
+      </div>
+ 
+      {/* Header */}
+      <div
+        className="pl-4 pt-3 pb-3 pr-3 font-semibold text-sm flex justify-between items-center"
+        style={{ background: "var(--accent)", color: "#fff" }}
+      >
+        <span>Tara</span>
         <button
-          onClick={(e) => setOpen(!isOpen)}
+          onClick={() => setIsOpen((o) => !o)}
+          className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors duration-150"
+          style={{ background: "rgba(255,255,255,0.15)" }}
+          aria-label={isOpen ? "Collapse chat" : "Expand chat"}
         >
-          ↕️
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            style={{
+              transition: "transform 0.25s ease",
+              transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+          >
+            <path d="M2 5l5 5 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
       </div>
-      <div className="w-full h-full overflow-auto flex flex-col gap-2"> 
-        <div className="h-[3rem]"></div>
-        {conversation.map((cm, index) => {
-          const f = 'w-[50%] p-4 bg-yellow-100 rounded-xl mx-3' + ' ' + 
-                    (index % 2 == 0 ? "self-start" : "self-end") 
-          return <div className={f} key={cm.id + cm.message}>
-            {cm.message}
+ 
+      {/* Collapsible body */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateRows: isOpen ? "1fr" : "0fr",
+          transition: "grid-template-rows 0.3s ease",
+        }}
+      >
+        <div style={{ overflow: "hidden" }}>
+          {/* Messages */}
+          <div
+            className="w-[32rem] h-[24rem] overflow-y-auto flex flex-col gap-2 py-4 px-3"
+            style={{ background: "var(--accent-light)" }}
+          >
+            {conversation.map((cm, index) => {
+              const isUser = index % 2 !== 0;
+              return (
+                <div
+                  key={cm.id + cm.message}
+                  className="max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed"
+                  style={{
+                    alignSelf: isUser ? "flex-end" : "flex-start",
+                    background: isUser ? "var(--accent)" : "var(--card)",
+                    color: isUser ? "#fff" : "var(--foreground)",
+                    border: isUser ? "none" : "1px solid var(--border)",
+                    borderBottomRightRadius: isUser ? "4px" : undefined,
+                    borderBottomLeftRadius: !isUser ? "4px" : undefined,
+                  }}
+                >
+                  {cm.message}
+                </div>
+              );
+            })}
+ 
+            {isLoading && (
+              <div
+                className="max-w-[75%] px-4 py-3 rounded-2xl text-sm self-start"
+                style={{
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
+                  borderBottomLeftRadius: "4px",
+                }}
+              >
+                <span className="flex gap-1 items-center" style={{ color: "var(--muted)" }}>
+                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: "var(--accent)" }} />
+                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: "var(--accent)" }} />
+                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: "var(--accent)" }} />
+                </span>
+              </div>
+            )}
+ 
+            <div ref={bottomRef} />
           </div>
-        })}
-        <div className="h-[3rem]"></div>
-      </div>
-      <div className="bottom-4 mx-2 p-1 border-1 border-green-100 relative backdrop-blur-md rounded-[32rem] shadow-md flex flex-row justify-center gap-1 h-auto w-fill">
-        <textarea 
-          className="field-sizing-content w-fill appearance-none bg-transparent border-none focus:ring-0 focus:outline-none"
-          placeholder="Ask anything"
-          onChange={(e) => setMessage(e.target.value)}
-          rows={3}
-        ></textarea>
-        {/* TODO give this button a gradient background and white send icon*/}
-        <button
-          className="rounded-xl w-8 h-8 border-none" 
-          onClick={() => sendChatbotMessage(message)}
-        >↩️</button>
+ 
+          {/* Input bar */}
+          <div
+            className="mx-3 my-2 px-3 py-2 rounded-[2rem] flex flex-row items-end gap-2"
+            style={{ border: "1px solid var(--border)", background: "var(--card)" }}
+          >
+            <textarea
+              ref={textareaRef}
+              className="flex-1 resize-none appearance-none bg-transparent border-none focus:ring-0 focus:outline-none text-sm leading-relaxed"
+              style={{ color: "var(--foreground)", maxHeight: "7rem", minHeight: "1.5rem" }}
+              placeholder="Ask anything…"
+              rows={1}
+              value={message}
+              onChange={(e) => {
+                setMessage(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = e.target.scrollHeight + "px";
+              }}
+              onKeyDown={handleKeyDown}
+            />
+            <button
+              onClick={() => sendChatbotMessage(message)}
+              disabled={!message.trim() || isLoading}
+              className="mb-0.5 w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full transition-all duration-150"
+              style={{
+                background:
+                  message.trim() && !isLoading
+                    ? "var(--accent)"
+                    : "var(--border)",
+                cursor: message.trim() && !isLoading ? "pointer" : "not-allowed",
+              }}
+              aria-label="Send message"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 12V2M2 7l5-5 5 5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-  )
+  );
 }
