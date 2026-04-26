@@ -186,6 +186,7 @@ export default function CustomerPage() {
       setCart([]);
       setCartOpen(false);
       await fetchWeather();
+
       setOrderPlaced(true);
     } catch (err) {
       console.error("Failed to place order:", err);
@@ -193,24 +194,10 @@ export default function CustomerPage() {
     }
   }
 
-  if (orderPlaced) {
-    return (
-      <main className="flex-1 flex flex-col items-center justify-center p-8">
-        <h1 className="text-3xl font-bold mb-2"><span>Order placed</span></h1>
-        <p className="text-muted mb-6"><span>Thank you for your order.</span></p>
-        <button
-          onClick={() => setOrderPlaced(false)}
-          className="rounded-lg bg-accent px-6 py-2 text-white font-medium hover:opacity-90 transition"
-        >
-          <span>New Order</span>
-        </button>
-      </main>
-    );
-  }
-
   return (
     <main className="flex-1 flex flex-col relative h-screen">
 
+      {/* Header stays mounted at all times so GoogleTranslate is never torn down */}
       <div className="relative flex items-center justify-center py-4 border-b border-border bg-card">
         <h1 className="text-3xl font-display tracking-tight"><span>Taro Root</span></h1>
         <div className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -218,6 +205,26 @@ export default function CustomerPage() {
         </div>
       </div>
 
+      {/* Order confirmation — rendered in-place instead of as an early return */}
+      {orderPlaced && (
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          <h1 className="text-3xl font-bold mb-2"><span>Order placed</span></h1>
+          <p className="text-muted mb-6"><span>Thank you for your order.</span></p>
+          <button
+            onClick={() => {
+              setOrderPlaced(false);
+              document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+              document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + window.location.hostname;
+              window.location.reload();
+            }}
+            className="rounded-lg bg-accent px-6 py-2 text-white font-medium hover:opacity-90 transition"
+          >
+            <span>New Order</span>
+          </button>
+        </div>
+      )}
+
+      {!orderPlaced && (
       <div className="flex flex-1 overflow-hidden">
 
         {/* Sidebar */}
@@ -296,6 +303,7 @@ export default function CustomerPage() {
           </div>
         </div>
       </div>
+      )} {/* end !orderPlaced */}
 
       {/* Floating cart button */}
       <button
