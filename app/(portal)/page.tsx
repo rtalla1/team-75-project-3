@@ -20,7 +20,7 @@ export default function PortalPage() {
           <p className="text-foreground/60 mt-2">bubble tea & food.</p>
           <Link
             href="/order"
-            className="mt-8 rounded-xl bg-accent text-white px-10 py-4 text-lg font-medium hover:bg-accent-dark transition shadow-lg shadow-accent-dark/30"
+            className="mt-8 rounded-xl bg-accent text-white px-10 py-4 text-lg font-medium hover:bg-accent-dark hover:scale-105 transition shadow-lg shadow-accent-dark/30"
           >
             Order from our Menu
           </Link>
@@ -35,7 +35,7 @@ export default function PortalPage() {
         >
           <button
             type="submit"
-            className="text-sm text-foreground/70 hover:text-accent hover:scale-105 transition rounded-full px-4 py-1.5 bg-white/50 backdrop-blur-sm ring-1 ring-white/40"
+            className="text-sm text-foreground/70 hover:text-black hover:scale-105 transition rounded-full px-4 py-1.5 bg-white/50 backdrop-blur-sm ring-1 ring-white/40"
           >
             Employee Login →
           </button>
