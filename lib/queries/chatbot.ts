@@ -51,7 +51,7 @@ export async function continueConversation(message: ChatMessage): Promise<Result
   });
 
   try {
-    console.log("Incoming message:", message);
+    // console.log("Incoming message:", message);
 
     let messageToSend = "";
 
@@ -70,7 +70,7 @@ export async function continueConversation(message: ChatMessage): Promise<Result
 
     messageToSend += "\n\n" + message.message;
 
-    console.log("Message to send:\n", messageToSend);
+    // console.log("Message to send:\n", messageToSend);
 
     const result = await openai.responses.create({
       model: "gpt-5-nano",
@@ -86,8 +86,8 @@ export async function continueConversation(message: ChatMessage): Promise<Result
       result.output?.[0]?.content?.[0]?.text ||
       "";
 
-    console.log("Response ID:", result.id);
-    console.log("Response Text:", responseText);
+    // console.log("Response ID:", result.id);
+    // console.log("Response Text:", responseText);
 
     return {
       id: result.id,

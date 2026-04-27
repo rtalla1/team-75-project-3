@@ -4,8 +4,6 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    console.log(body);
-
     const message: string = String(body.message ?? "").trim()
     const id: string = String(body.id ?? "").trim()
     
@@ -17,7 +15,7 @@ export async function POST(request: Request) {
     
     const res = await continueConversation({message, id});
 
-    console.log("RESULT: ", res);
+    // console.log("Chatbot response: ", res);
 
     if (!res.ok) {
       return Response.json({ error: res.error }, { status: res.errorCode });
