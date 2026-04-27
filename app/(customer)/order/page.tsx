@@ -58,6 +58,10 @@ export default function CustomerPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
+  const menuGridRef = useRef<HTMLDivElement>(null);
+  const customizingRef = useRef<HTMLDivElement>(null);
+  const firstItemRef = useRef<HTMLButtonElement>(null);
+  const lastClickedItemRef = useRef<HTMLButtonElement>(null);
 
   function showToast(message: string) {
     if (toastTimeoutRef.current !== null) {
@@ -91,6 +95,13 @@ export default function CustomerPage() {
 
     fetchWeather();
   }, []);
+
+  // Move focus to customization modal when it opens
+  useEffect(() => {
+    if (customizing) {
+      focusCustomizationModal();
+    }
+  }, [customizing]);
 
   const filtered = menu.filter((i) => i.category === activeCategory);
   const total = cart.reduce((s, i) => s + i.price, 0);
@@ -153,6 +164,22 @@ export default function CustomerPage() {
     setCustomizing(null);
     setEditingId(null);
     setSelectedAddOns([]);
+    // Return focus to the item that was clicked
+    setTimeout(() => {
+      lastClickedItemRef.current?.focus();
+    }, 0);
+  }
+
+  function focusFirstMenuItem() {
+    setTimeout(() => {
+      firstItemRef.current?.focus();
+    }, 0);
+  }
+
+  function focusCustomizationModal() {
+    setTimeout(() => {
+      customizingRef.current?.querySelector("h3")?.focus();
+    }, 0);
   }
 
   function startEditing(cartItem: CartItem) {
@@ -231,89 +258,100 @@ export default function CustomerPage() {
       )}
 
       {!orderPlaced && (
-      <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden">
 
-        {/* Sidebar */}
-        <div className="w-44 flex flex-col gap-2 p-4 border-r border-border bg-card">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-3 rounded-lg text-base font-medium text-center whitespace-nowrap transition ${
-                activeCategory === cat
-                  ? "bg-accent text-white"
-                  : "border border-border text-muted hover:border-accent"
-              }`}
-            >
-              {/* Static category names don't need spans since they never change,
-                  but wrapping them is harmless and consistent */}
-              <span>{cat}</span>
-            </button>
-          ))}
-
-          {/* Weather Widget */}
-          <div className="mt-auto pt-4 border-t border-border flex flex-col gap-1 text-xs text-muted uppercase tracking-wider">
-            {weather ? (
-              <>
-                <div className="text-foreground font-bold text-xl leading-none">
-                  <span>{weather.temperature_2m.toFixed(0)}°F</span>
-                </div>
-                <div><span>{weather.cloud_cover > 50 ? "Cloudy" : "Clear"}</span></div>
-                <div><span>Wind: {weather.wind_speed_10m} mph</span></div>
-                {weather.precipitation > 0 && (
-                  <div className="text-accent font-medium">
-                    <span>Rain: {weather.precipitation}"</span>
-                  </div>
-                )}
-
-                <button
-                  onClick={openRecommendation}
-                  className="text-left mt-3 pt-3 border-t border-border/50 font-semibold normal-case leading-tight hover:text-accent transition"
-                >
-                  <span>Try our </span>
-                  <span className="text-foreground not-italic underline underline-offset-2 hover:text-accent">
-                    {getWeatherRecommendation()}
-                  </span>
-                </button>
-              </>
-            ) : (
-              <div className="animate-pulse"><span>Loading...</span></div>
-            )}
-          </div>
-        </div>
-
-        {/* Menu grid */}
-        <div className="flex-1 p-6 overflow-y-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filtered.map((item) => (
+          {/* Sidebar */}
+          <div className="w-44 flex flex-col gap-2 p-4 border-r border-border bg-card" role="navigation" aria-label="Category filters">
+            {CATEGORIES.map((cat) => (
               <button
-                key={item.itemid}
-                onClick={() => handleItemClick(item)}
-                className="text-left rounded-xl border border-border bg-card p-4 hover:border-accent hover:shadow-sm transition"
+                key={cat}
+                onClick={() => {
+                  setActiveCategory(cat);
+                  focusFirstMenuItem();
+                }}
+                aria-label={`View ${cat} category`}
+                aria-pressed={activeCategory === cat}
+                className={`px-3 py-3 rounded-lg text-base font-medium text-center whitespace-nowrap transition ${activeCategory === cat
+                    ? "bg-accent text-white"
+                    : "border border-border text-muted hover:border-accent"
+                  }`}
               >
-                <div className="flex items-baseline justify-between gap-2">
-                  <div className="font-display font-bold text-lg leading-tight">
-                    <span>{item.itemname}</span>
-                  </div>
-                  <div className="text-base text-muted shrink-0">
-                    <span>${Number(item.price).toFixed(2)}</span>
-                  </div>
-                </div>
-                {item.description && (
-                  <div className="text-sm text-muted mt-2 leading-snug">
-                    <span>{item.description}</span>
-                  </div>
-                )}
+                {/* Static category names don't need spans since they never change,
+                  but wrapping them is harmless and consistent */}
+                <span>{cat}</span>
               </button>
             ))}
+
+            {/* Weather Widget */}
+            <div className="mt-auto pt-4 border-t border-border flex flex-col gap-1 text-xs text-muted uppercase tracking-wider">
+              {weather ? (
+                <>
+                  <div className="text-foreground font-bold text-xl leading-none">
+                    <span>{weather.temperature_2m.toFixed(0)}°F</span>
+                  </div>
+                  <div><span>{weather.cloud_cover > 50 ? "Cloudy" : "Clear"}</span></div>
+                  <div><span>Wind: {weather.wind_speed_10m} mph</span></div>
+                  {weather.precipitation > 0 && (
+                    <div className="text-accent font-medium">
+                      <span>Rain: {weather.precipitation}"</span>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={openRecommendation}
+                    className="text-left mt-3 pt-3 border-t border-border/50 font-semibold normal-case leading-tight hover:text-accent transition"
+                    aria-label={`Add recommended drink to cart: ${getWeatherRecommendation()}`}
+                  >
+                    <span>Try our </span>
+                    <span className="text-foreground not-italic underline underline-offset-2 hover:text-accent">
+                      {getWeatherRecommendation()}
+                    </span>
+                  </button>
+                </>
+              ) : (
+                <div className="animate-pulse"><span>Loading...</span></div>
+              )}
+            </div>
+          </div>
+
+          {/* Menu grid */}
+          <div className="flex-1 p-6 overflow-y-auto" role="main" aria-label="Menu items">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" ref={menuGridRef}>
+              {filtered.map((item, index) => (
+                <button
+                  key={item.itemid}
+                  ref={index === 0 ? firstItemRef : null}
+                  onClick={(e) => {
+                    lastClickedItemRef.current = e.currentTarget as HTMLButtonElement;
+                    handleItemClick(item);
+                  }}
+                  aria-label={`${item.itemname}, $${Number(item.price).toFixed(2)}${item.description ? `. ${item.description}` : ""}`}
+                  className="text-left rounded-xl border border-border bg-card p-4 hover:border-accent hover:shadow-sm transition"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div className="font-display font-bold text-lg leading-tight">
+                      <span>{item.itemname}</span>
+                    </div>
+                    <div className="text-base text-muted shrink-0">
+                      <span>${Number(item.price).toFixed(2)}</span>
+                    </div>
+                  </div>
+                  {item.description && (
+                    <div className="text-sm text-muted mt-2 leading-snug">
+                      <span>{item.description}</span>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
       )} {/* end !orderPlaced */}
 
       {/* Floating cart button */}
       <button
         onClick={() => setCartOpen(true)}
+        aria-label={`Open cart with ${cart.length} item${cart.length !== 1 ? "s" : ""}`}
         className="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-white font-medium shadow-md hover:opacity-90 transition"
       >
         <svg
@@ -350,6 +388,7 @@ export default function CustomerPage() {
             {cart.length > 0 && (
               <button
                 onClick={() => setCart([])}
+                aria-label="Remove all items from cart"
                 className="text-sm text-muted text-red-500 transition hover:underline"
               >
                 <span>Clear all</span>
@@ -384,6 +423,7 @@ export default function CustomerPage() {
                   {isCustomizable(item.item) && (
                     <button
                       onClick={() => startEditing(item)}
+                      aria-label={`Customize ${item.item}`}
                       className="text-xs text-accent hover:underline"
                     >
                       <span>Customize</span>
@@ -395,7 +435,7 @@ export default function CustomerPage() {
                       showToast(`${item.item} removed from cart`);
                     }}
                     className="text-xs text-muted hover:underline text-red-500 ml-auto"
-                    aria-label={`Remove ${item.item}`}
+                    aria-label={`Remove ${item.item} from cart`}
                   >
                     <span>Remove</span>
                   </button>
@@ -440,13 +480,14 @@ export default function CustomerPage() {
           onClick={closeCustomizing}
         >
           <div
+            ref={customizingRef}
             role="dialog"
             aria-modal="true"
-            aria-label={`Customize ${customizing.itemname}`}
+            aria-labelledby="customize-title"
             className="bg-card rounded-2xl p-6 w-full max-w-sm shadow-lg max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold mb-1"><span>{customizing.itemname}</span></h3>
+            <h3 id="customize-title" className="text-xl font-bold mb-1" tabIndex={-1}><span>{customizing.itemname}</span></h3>
             {customizing.description && (
               <p className="text-sm text-muted mb-2"><span>{customizing.description}</span></p>
             )}
@@ -462,11 +503,12 @@ export default function CustomerPage() {
                   <button
                     key="Hot"
                     onClick={() => toggleAddOn("Hot")}
-                    className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${
-                      selectedAddOns.includes("Hot")
+                    aria-label="Hot temperature"
+                    aria-pressed={selectedAddOns.includes("Hot")}
+                    className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${selectedAddOns.includes("Hot")
                         ? "border-accent bg-accent-light text-accent"
                         : "border-border text-muted hover:border-accent"
-                    }`}
+                      }`}
                   >
                     <span>Hot</span>
                   </button>
@@ -476,16 +518,17 @@ export default function CustomerPage() {
 
             {/* Sugar levels */}
             <p className="text-sm font-medium mb-2"><span>Sugar Level</span></p>
-            <div className="grid grid-cols-3 gap-2 mb-5">
+            <div className="grid grid-cols-3 gap-2 mb-5" role="group" aria-label="Sugar level options">
               {SUGAR_OPTIONS.map((s) => (
                 <button
                   key={s}
                   onClick={() => toggleExclusive(s, SUGAR_OPTIONS)}
-                  className={`rounded-lg border py-2 text-sm transition ${
-                    selectedAddOns.includes(s)
+                  aria-label={`${s} sugar`}
+                  aria-pressed={selectedAddOns.includes(s)}
+                  className={`rounded-lg border py-2 text-sm transition ${selectedAddOns.includes(s)
                       ? "border-accent bg-accent-light"
                       : "border-border hover:border-accent"
-                  }`}
+                    }`}
                 >
                   <span>{s}</span>
                 </button>
@@ -493,16 +536,17 @@ export default function CustomerPage() {
             </div>
 
             <p className="text-sm font-medium mb-2"><span>Toppings</span></p>
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2 mb-6" role="group" aria-label="Topping options">
               {addOns.map((ao) => (
                 <button
                   key={ao.itemid}
                   onClick={() => toggleAddOn(ao.itemname)}
-                  className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${
-                    selectedAddOns.includes(ao.itemname)
+                  aria-label={`${ao.itemname}, add $${Number(ao.price).toFixed(2)}`}
+                  aria-pressed={selectedAddOns.includes(ao.itemname)}
+                  className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${selectedAddOns.includes(ao.itemname)
                       ? "border-accent bg-accent-light"
                       : "border-border hover:border-accent"
-                  }`}
+                    }`}
                 >
                   <span>{ao.itemname}</span>
                   <span className="text-muted"><span>+${Number(ao.price).toFixed(2)}</span></span>
@@ -513,12 +557,14 @@ export default function CustomerPage() {
             <div className="flex gap-3">
               <button
                 onClick={closeCustomizing}
+                aria-label="Cancel customization"
                 className="flex-1 rounded-lg border border-border py-2 font-medium hover:bg-background transition"
               >
                 <span>Cancel</span>
               </button>
               <button
                 onClick={confirmCustomization}
+                aria-label={editingId !== null ? "Save changes to item" : "Add customized item to order"}
                 className="flex-1 rounded-lg bg-accent py-2 text-white font-medium hover:opacity-90 transition"
               >
                 <span>{editingId !== null ? "Save Changes" : "Add to Order"}</span>
@@ -530,7 +576,7 @@ export default function CustomerPage() {
 
       {/* chatbot window */}
       <div className="fixed bottom-4 left-45">
-        <ChatbotWindow/>
+        <ChatbotWindow />
       </div>
     </main>
   );
@@ -546,46 +592,46 @@ function ChatbotWindow() {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [toast, setToast] = useState<ToastState>({ visible: false, message: "" });
- 
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
- 
+
   useEffect(() => {
     if (isOpen) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [conversation, isOpen]);
- 
+
   function showToast(msg: string) {
     setToast({ visible: true, message: msg });
     setTimeout(() => setToast({ visible: false, message: "" }), 3500);
   }
- 
+
   async function sendChatbotMessage(text: string) {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
- 
+
     const lastId = conversation[conversation.length - 1]?.id ?? "";
     const req: ChatMessage = { id: lastId, message: trimmed };
- 
+
     setMessage("");
     setIsLoading(true);
     setConversation((prev) => [...prev, req]);
- 
+
     try {
       const result = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(req),
       });
- 
+
       if (!result.ok) {
         setMessage(trimmed);
         setConversation((prev) => prev.slice(0, -1));
         showToast("Something went wrong. Please try again.");
         return;
       }
- 
+
       const body: ChatMessage = await result.json();
       setConversation((prev) => [...prev, body]);
     } catch {
@@ -596,14 +642,14 @@ function ChatbotWindow() {
       setIsLoading(false);
     }
   }
- 
+
   function handleKeyDown(e: any) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendChatbotMessage(message);
     }
   }
- 
+
   return (
     <div
       className="h-auto flex flex-col gap-0 rounded-4xl overflow-hidden shadow-lg"
@@ -626,7 +672,7 @@ function ChatbotWindow() {
       >
         {toast.message}
       </div>
- 
+
       {/* Header */}
       <div
         className="pl-4 pt-3 pb-3 pr-3 font-semibold text-sm flex justify-between items-center"
@@ -653,7 +699,7 @@ function ChatbotWindow() {
           </svg>
         </button>
       </div>
- 
+
       {/* Collapsible body */}
       <div
         style={{
@@ -688,7 +734,7 @@ function ChatbotWindow() {
                 </div>
               );
             })}
- 
+
             {isLoading && (
               <div
                 className="max-w-[75%] px-4 py-3 rounded-2xl text-sm self-start"
@@ -705,10 +751,10 @@ function ChatbotWindow() {
                 </span>
               </div>
             )}
- 
+
             <div ref={bottomRef} />
           </div>
- 
+
           {/* Input bar */}
           <div
             className="mx-3 my-2 px-3 py-2 rounded-4xl flex flex-row items-end gap-2"
