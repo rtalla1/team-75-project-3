@@ -19,11 +19,15 @@ How the kiosk works:
 Reply in the same language the customer used. Keep responses to 1 or 2 short sentences. Plain prose only, no markdown, no lists, no headings.
 `
 
+// Represents a single chat message passed to/from the chatbot API.
+// `id` is the OpenAI response ID used to thread multi-turn conversations.
 export type ChatMessage = {
   message: string,
   id: string
 }
 
+// Internal result shape returned by continueConversation.
+// `id` is the new OpenAI response ID to pass back for the next turn.
 type Result = {
   id: string, 
   response: string,
@@ -32,9 +36,13 @@ type Result = {
   errorCode: number
 }
 
+// Sentinel ID indicating the very first message in a conversation.
+// When this ID is used, the system prompt and full menu are prepended to the message.
 const FIRST_MESSAGE_CONVO_ID = 'init';
 
-// only return the response string
+// Sends a message to the OpenAI chatbot and returns the assistant's reply.
+// On the first message (id === 'init'), the system prompt and full menu are injected.
+// Subsequent messages use the previous response ID to maintain conversation context.
 export async function continueConversation(message: ChatMessage): Promise<Result> {
   if (!process.env.OPENAI_KEY) {
     return {

@@ -1,33 +1,38 @@
 import pool from "@/lib/db";
 
+// A single day's aggregated metric used in sales and inventory usage charts.
 export interface DailyMetric {
-    day: string;
+    day: string;     // ISO date string (YYYY-MM-DD)
     orders: number;
-    revenue?: number;
-    usage?: number;
+    revenue?: number; // total revenue for the day (sales history only)
+    usage?: number;   // total ingredient units consumed (inventory history only)
 }
 
+// A single hour's aggregated metric used in X/Z report breakdowns.
 export interface HourlyMetric {
-    hour: number;
+    hour: number;   // 0–23
     orders: number;
     revenue: number;
 }
 
+// The full data payload returned by generateXReport and generateZReport.
 export interface ReportDetails {
     type: "x" | "z";
-    generatedAt: string;
-    from: string;
-    to: string;
+    generatedAt: string; // ISO timestamp of when the report was generated
+    from: string;        // start of the reporting window (ISO timestamp)
+    to: string;          // end of the reporting window (ISO timestamp)
     totalOrders: number;
     totalRevenue: number;
-    hourly: HourlyMetric[];
+    hourly: HourlyMetric[]; // 24-element array, one entry per hour
 }
 
+// A simple inclusive date range used for filtering stats queries.
 export interface DateRange {
-    startDate: string;
-    endDate: string;
+    startDate: string; // YYYY-MM-DD
+    endDate: string;   // YYYY-MM-DD
 }
 
+// Generates an array of ISO date strings (YYYY-MM-DD) for the past `days` days, ending today.
 function getPastDayKeys(days: number): string[] {
     const keys: string[] = [];
     const today = new Date();
@@ -39,15 +44,19 @@ function getPastDayKeys(days: number): string[] {
     return keys;
 }
 
+// Formats a Date object as a YYYY-MM-DD string.
 function formatDate(date: Date): string {
     return date.toISOString().slice(0, 10);
 }
 
+// Returns the date of the most recent order as a YYYY-MM-DD string, or null if there are no orders.
 export async function getLatestOrderDate(): Promise<string | null> {
     const { rows } = await pool.query(`SELECT MAX(DATE("time"))::text AS latest_day FROM orderhistory`);
     return rows[0]?.latest_day ? String(rows[0].latest_day) : null;
 }
 
+// Returns a DateRange ending on the most recent order date (or today) and spanning `days` days back.
+// Used as a fallback when the caller doesn't supply an explicit date range.
 export async function getDefaultStatsDateRange(days: number = 14): Promise<DateRange> {
     const latestDay = await getLatestOrderDate();
     const end = latestDay ? new Date(`${latestDay}T00:00:00.000Z`) : new Date();
@@ -60,7 +69,8 @@ export async function getDefaultStatsDateRange(days: number = 14): Promise<DateR
     };
 }
 
-//check stats per hour
+// Converts a sparse set of hourly DB rows into a full 24-element array,
+// filling in zeros for any hours with no activity.
 function fillHourly(rows: Array<{ hour: number; orders: number; revenue: number }>): HourlyMetric[] {
     const byHour = new Map(rows.map((r) => [Number(r.hour), r]));
     return Array.from({ length: 24 }, (_, hour) => {
@@ -73,7 +83,7 @@ function fillHourly(rows: Array<{ hour: number; orders: number; revenue: number 
     });
 }
 
-//pull sales history
+// Returns daily order counts and revenue for the past `days` days, including days with no orders.
 export async function getSalesHistory(days: number = 14): Promise<DailyMetric[]> {
     const { rows } = await pool.query(
         `SELECT DATE("time")::text AS day,
@@ -99,6 +109,8 @@ export async function getSalesHistory(days: number = 14): Promise<DailyMetric[]>
     });
 }
 
+// Returns daily order counts and revenue between startDate and endDate (inclusive).
+// If menuItemIds is provided, counts and revenue are scoped to only those menu items.
 export async function getSalesHistoryByDateRange(
     startDate: string,
     endDate: string,
@@ -162,7 +174,7 @@ export async function getSalesHistoryByDateRange(
     }));
 }
 
-//pull inventory usage
+// Returns daily total ingredient usage (summed across all orders) for the past `days` days.
 export async function getInventoryUsageHistory(days: number = 14): Promise<DailyMetric[]> {
     const { rows } = await pool.query(
         `SELECT DATE(oh."time")::text AS day,
@@ -190,6 +202,8 @@ export async function getInventoryUsageHistory(days: number = 14): Promise<Daily
     });
 }
 
+// Returns daily ingredient usage between startDate and endDate (inclusive).
+// If ingredientIds is provided, usage is scoped to only those ingredients.
 export async function getInventoryUsageHistoryByDateRange(
     startDate: string,
     endDate: string,
@@ -252,6 +266,8 @@ export async function getInventoryUsageHistoryByDateRange(
     }));
 }
 
+// Queries hourly order counts and revenue between two ISO timestamps.
+// Returns a full 24-element array with zeros for inactive hours.
 async function getHourlyMetrics(fromIso: string, toIso: string): Promise<HourlyMetric[]> {
     const { rows } = await pool.query(
         `SELECT EXTRACT(HOUR FROM "time")::int AS hour,
@@ -268,7 +284,7 @@ async function getHourlyMetrics(fromIso: string, toIso: string): Promise<HourlyM
     return fillHourly(rows as Array<{ hour: number; orders: number; revenue: number }>);
 }
 
-//check if z report previously generated
+// Returns true if a Z report has already been generated for today, false otherwise.
 export async function hasZReportToday(): Promise<boolean> {
     const { rows } = await pool.query(
         "SELECT id FROM zreport_log WHERE report_date = CURRENT_DATE LIMIT 1"
@@ -276,6 +292,8 @@ export async function hasZReportToday(): Promise<boolean> {
     return rows.length > 0;
 }
 
+// Generates an X report: a non-destructive sales snapshot from the last Z report (or start of day) until now.
+// Does not modify any database state.
 export async function generateXReport(): Promise<ReportDetails> {
     //query the database
     const { rows: resetRows } = await pool.query(
@@ -301,6 +319,9 @@ export async function generateXReport(): Promise<ReportDetails> {
     };
 }
 
+// Generates a Z report: closes out the current sales period and records it in zreport_log.
+// Throws an error if a Z report has already been generated today.
+// Uses a transaction to ensure the log entry and the report data stay consistent.
 export async function generateZReport(): Promise<ReportDetails> {
     const client = await pool.connect();
     try {
