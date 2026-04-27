@@ -8,8 +8,8 @@ const OPEN_METEO_URL =
 export async function GET() {
   try {
     const res = await fetch(OPEN_METEO_URL, { next: { revalidate: 600 } });
-    if (!res.ok) throw new Error(`Upstream responded ${res.status}`);
     const data = await res.json();
+    if (!res.ok) throw new Error(`Upstream responded ${res.status}`);
     return Response.json(data.current);
   } catch (err) {
     console.error("Weather fetch failed:", err);
