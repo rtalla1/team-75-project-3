@@ -529,7 +529,7 @@ export default function CustomerPage() {
       )}
 
       {/* chatbot window */}
-      <div className="fixed bottom-4 left-4">
+      <div className="fixed bottom-4 left-45">
         <ChatbotWindow/>
       </div>
     </main>
@@ -632,7 +632,7 @@ function ChatbotWindow() {
         className="pl-4 pt-3 pb-3 pr-3 font-semibold text-sm flex justify-between items-center"
         style={{ background: "var(--accent)", color: "#fff" }}
       >
-        <span>Tara</span>
+        <span className="pr-8">Tara</span>
         <button
           onClick={() => setIsOpen((o) => !o)}
           className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors duration-150"
@@ -659,13 +659,14 @@ function ChatbotWindow() {
         style={{
           display: "grid",
           gridTemplateRows: isOpen ? "1fr" : "0fr",
+          gridTemplateColumns: isOpen ? "1fr" : "0fr",
           transition: "grid-template-rows 0.3s ease",
         }}
       >
         <div style={{ overflow: "hidden" }}>
           {/* Messages */}
           <div
-            className="w-lg h-96 overflow-y-auto flex flex-col gap-2 py-4 px-3"
+            className="w-102 h-96 overflow-y-auto flex flex-col gap-2 py-4 px-3"
             style={{ background: "var(--accent-light)" }}
           >
             {conversation.map((cm, index) => {

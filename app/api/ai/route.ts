@@ -17,6 +17,8 @@ export async function POST(request: Request) {
     
     const res = await continueConversation({message, id});
 
+    console.log("RESULT: ", res);
+
     if (!res.ok) {
       return Response.json({ error: res.error }, { status: res.errorCode });
     }
