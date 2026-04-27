@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import ManagerTerminal from "@/components/ManagerTerminal";
-import Link from "next/link";
 
 export default async function ManagerPage() {
   const session = await auth();
