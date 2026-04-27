@@ -23,6 +23,11 @@ export interface ReportDetails {
     hourly: HourlyMetric[];
 }
 
+export interface DateRange {
+    startDate: string;
+    endDate: string;
+}
+
 function getPastDayKeys(days: number): string[] {
     const keys: string[] = [];
     const today = new Date();
@@ -32,6 +37,27 @@ function getPastDayKeys(days: number): string[] {
         keys.push(d.toISOString().slice(0, 10));
     }
     return keys;
+}
+
+function formatDate(date: Date): string {
+    return date.toISOString().slice(0, 10);
+}
+
+export async function getLatestOrderDate(): Promise<string | null> {
+    const { rows } = await pool.query(`SELECT MAX(DATE("time"))::text AS latest_day FROM orderhistory`);
+    return rows[0]?.latest_day ? String(rows[0].latest_day) : null;
+}
+
+export async function getDefaultStatsDateRange(days: number = 14): Promise<DateRange> {
+    const latestDay = await getLatestOrderDate();
+    const end = latestDay ? new Date(`${latestDay}T00:00:00.000Z`) : new Date();
+    const start = new Date(end);
+    start.setUTCDate(end.getUTCDate() - (days - 1));
+
+    return {
+        startDate: formatDate(start),
+        endDate: formatDate(end),
+    };
 }
 
 //check stats per hour
@@ -73,6 +99,69 @@ export async function getSalesHistory(days: number = 14): Promise<DailyMetric[]>
     });
 }
 
+export async function getSalesHistoryByDateRange(
+    startDate: string,
+    endDate: string,
+    menuItemIds: number[] = []
+): Promise<DailyMetric[]> {
+    if (menuItemIds.length === 0) {
+        const { rows } = await pool.query(
+            `SELECT gs.day::text AS day,
+            COALESCE(COUNT(oh.orderid), 0)::int AS orders,
+            COALESCE(SUM(oh.price), 0)::float8 AS revenue
+     FROM generate_series($1::date, $2::date, '1 day'::interval) AS gs(day)
+     LEFT JOIN orderhistory oh
+       ON DATE(oh."time") = gs.day::date
+     GROUP BY gs.day
+     ORDER BY gs.day`,
+            [startDate, endDate]
+        );
+
+        return rows.map((row) => ({
+            day: String(row.day),
+            orders: Number(row.orders),
+            revenue: Number(row.revenue),
+        }));
+    }
+
+    const { rows } = await pool.query(
+        `SELECT gs.day::text AS day,
+            COALESCE(
+                COUNT(DISTINCT CASE WHEN m.itemid = ANY($3::int[]) THEN oh.orderid END),
+                0
+            )::int AS orders,
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN m.itemid = ANY($3::int[])
+                        THEN COALESCE(m.price, 0) * (
+                            CASE
+                                WHEN (oi->>'quantity') ~ '^[0-9]+$' THEN (oi->>'quantity')::int
+                                ELSE 1
+                            END
+                        )
+                        ELSE 0
+                    END
+                ),
+                0
+            )::float8 AS revenue
+     FROM generate_series($1::date, $2::date, '1 day'::interval) AS gs(day)
+     LEFT JOIN orderhistory oh
+       ON DATE(oh."time") = gs.day::date
+     LEFT JOIN LATERAL jsonb_array_elements(COALESCE(oh.orderdetails->'items', '[]'::jsonb)) oi ON true
+     LEFT JOIN menu m ON m.itemname = oi->>'item'
+     GROUP BY gs.day
+     ORDER BY gs.day`,
+        [startDate, endDate, menuItemIds]
+    );
+
+    return rows.map((row) => ({
+        day: String(row.day),
+        orders: Number(row.orders),
+        revenue: Number(row.revenue),
+    }));
+}
+
 //pull inventory usage
 export async function getInventoryUsageHistory(days: number = 14): Promise<DailyMetric[]> {
     const { rows } = await pool.query(
@@ -101,6 +190,68 @@ export async function getInventoryUsageHistory(days: number = 14): Promise<Daily
     });
 }
 
+export async function getInventoryUsageHistoryByDateRange(
+    startDate: string,
+    endDate: string,
+    ingredientIds: number[] = []
+): Promise<DailyMetric[]> {
+    if (ingredientIds.length === 0) {
+        const { rows } = await pool.query(
+            `SELECT gs.day::text AS day,
+            COALESCE(SUM(mim.quantity), 0)::float8 AS usage
+     FROM generate_series($1::date, $2::date, '1 day'::interval) AS gs(day)
+     LEFT JOIN orderhistory oh
+       ON DATE(oh."time") = gs.day::date
+     LEFT JOIN LATERAL jsonb_array_elements(COALESCE(oh.orderdetails->'items', '[]'::jsonb)) oi ON true
+     LEFT JOIN menu m ON m.itemname = oi->>'item'
+     LEFT JOIN menuingredientsmap mim ON mim.itemid = m.itemid
+     GROUP BY gs.day
+     ORDER BY gs.day`,
+            [startDate, endDate]
+        );
+
+        return rows.map((row) => ({
+            day: String(row.day),
+            orders: 0,
+            usage: Number(row.usage),
+        }));
+    }
+
+    const { rows } = await pool.query(
+        `SELECT gs.day::text AS day,
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN mim.ingredientid = ANY($3::int[])
+                        THEN COALESCE(mim.quantity, 0) * (
+                            CASE
+                                WHEN (oi->>'quantity') ~ '^[0-9]+$' THEN (oi->>'quantity')::int
+                                ELSE 1
+                            END
+                        )
+                        ELSE 0
+                    END
+                ),
+                0
+            )::float8 AS usage
+     FROM generate_series($1::date, $2::date, '1 day'::interval) AS gs(day)
+     LEFT JOIN orderhistory oh
+       ON DATE(oh."time") = gs.day::date
+     LEFT JOIN LATERAL jsonb_array_elements(COALESCE(oh.orderdetails->'items', '[]'::jsonb)) oi ON true
+     LEFT JOIN menu m ON m.itemname = oi->>'item'
+     LEFT JOIN menuingredientsmap mim ON mim.itemid = m.itemid
+     GROUP BY gs.day
+     ORDER BY gs.day`,
+        [startDate, endDate, ingredientIds]
+    );
+
+    return rows.map((row) => ({
+        day: String(row.day),
+        orders: 0,
+        usage: Number(row.usage),
+    }));
+}
+
 async function getHourlyMetrics(fromIso: string, toIso: string): Promise<HourlyMetric[]> {
     const { rows } = await pool.query(
         `SELECT EXTRACT(HOUR FROM "time")::int AS hour,
@@ -126,7 +277,7 @@ export async function hasZReportToday(): Promise<boolean> {
 }
 
 export async function generateXReport(): Promise<ReportDetails> {
-     //query the database
+    //query the database
     const { rows: resetRows } = await pool.query(
         `SELECT COALESCE(MAX(generated_at), CURRENT_DATE::timestamptz) AS reset_at
      FROM zreport_log

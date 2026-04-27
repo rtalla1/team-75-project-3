@@ -380,9 +380,9 @@ export default function ManagerTerminal() {
                 </Link>
             </div>
 
-             {/* creating ui from modals*/}
-            <div className="grid gap-6 lg:grid-cols-3">
-                <section className="rounded-xl border border-border bg-card p-4 flex flex-col">
+            {/* creating ui from modals*/}
+            <div className="grid gap-6 lg:grid-cols-3 lg:h-[calc(100vh-220px)]">
+                <section className="rounded-xl border border-border bg-card p-4 flex flex-col min-h-0 max-h-[70vh] lg:max-h-none">
                     <div className="mb-3 flex items-center justify-between">
                         <h2 className="text-xl font-bold">Employees</h2>
                         <button
@@ -393,7 +393,7 @@ export default function ManagerTerminal() {
                         </button>
                     </div>
 
-                    <div className="space-y-2 overflow-y-auto">
+                    <div className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
                         {employees.map((employee) => (
                             <div
                                 key={employee.id}
@@ -416,7 +416,7 @@ export default function ManagerTerminal() {
                     </div>
                 </section>
 
-                <section className="rounded-xl border border-border bg-card p-4 flex flex-col">
+                <section className="rounded-xl border border-border bg-card p-4 flex flex-col min-h-0 max-h-[70vh] lg:max-h-none">
                     <div className="mb-3 flex items-center justify-between">
                         <h2 className="text-xl font-bold">Inventory Items</h2>
                         <button
@@ -427,7 +427,7 @@ export default function ManagerTerminal() {
                         </button>
                     </div>
 
-                    <div className="space-y-2 overflow-y-auto">
+                    <div className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
                         {inventory.map((item) => (
                             <div
                                 key={item.id}
@@ -450,7 +450,7 @@ export default function ManagerTerminal() {
                     </div>
                 </section>
 
-                <section className="rounded-xl border border-border bg-card p-4 flex flex-col">
+                <section className="rounded-xl border border-border bg-card p-4 flex flex-col min-h-0 max-h-[70vh] lg:max-h-none">
                     <div className="mb-3 flex items-center justify-between">
                         <h2 className="text-xl font-bold">Menu Items</h2>
                         <button
@@ -461,7 +461,7 @@ export default function ManagerTerminal() {
                         </button>
                     </div>
 
-                    <div className="space-y-2 overflow-y-auto">
+                    <div className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
                         {menuItems.map((item) => (
                             <div
                                 key={item.id}
