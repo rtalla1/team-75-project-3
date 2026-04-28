@@ -1,5 +1,11 @@
+// Conversion factor used to turn mm of precipitation into inches.
 const MM_PER_INCH = 25.4;
 
+// GET /api/weather
+// Fetches current weather conditions for the College Station, TX area
+// from OpenWeatherMap and returns a normalized subset of the data.
+// Responses are cached for 10 minutes (revalidate: 600).
+// Returns: { temperature_2m, cloud_cover, wind_speed_10m, precipitation }
 export async function GET() {
   const url =
     "https://api.openweathermap.org/data/2.5/weather" +

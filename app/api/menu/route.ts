@@ -1,6 +1,9 @@
 import { auth } from "@/lib/auth";
 import { addMenuItem, deleteMenuItem, getMenu, getMenuByCategory } from "@/lib/queries/menu";
 
+// GET /api/menu?category=<category>
+// Returns all menu items, optionally filtered by category.
+// If no `category` query param is provided, returns the full menu.
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -15,10 +18,15 @@ export async function GET(request: Request) {
   }
 }
 
+// Returns a 401 if the current session belongs to a non-manager user.
 function unauthorizedResponse() {
   return Response.json({ error: "Unauthorized" }, { status: 401 });
 }
 
+// POST /api/menu
+// Creates a new menu item with its ingredient mappings. Restricted to managers.
+// Body: { itemname, category, description, price, ingredientMappings: [{ ingredientid, quantity }] }
+// Returns the newly created menu item with a 201 status.
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();
@@ -68,6 +76,9 @@ export async function POST(request: Request) {
   }
 }
 
+// DELETE /api/menu?itemId=<id>
+// Removes a menu item by its ID. Restricted to managers.
+// Query param: itemId (integer)
 export async function DELETE(request: Request) {
   const session = await auth();
   if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();

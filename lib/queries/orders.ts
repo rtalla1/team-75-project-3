@@ -1,6 +1,9 @@
 import pool from "@/lib/db";
 import { OrderItem } from "@/lib/types";
 
+// Inserts a new order into the orderhistory table and returns the generated order UUID.
+// `source` indicates where the order originated (e.g. "kiosk", "cashier").
+// `customerName` and `employeeId` are optional and may be null.
 export async function submitOrder(
   items: OrderItem[],
   total: number,

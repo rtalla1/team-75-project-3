@@ -1,10 +1,13 @@
 import { auth } from "@/lib/auth";
 import { addEmployee, deleteEmployee, getEmployees } from "@/lib/queries/employees";
 
+// Returns a 401 if the current session belongs to a non-manager user.
 function unauthorizedResponse() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
 }
 
+// GET /api/employees
+// Returns the full list of employees. Restricted to managers.
 export async function GET() {
     const session = await auth();
     if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();
@@ -19,6 +22,10 @@ export async function GET() {
     }
 }
 
+// POST /api/employees
+// Creates a new employee record. Restricted to managers.
+// Body: { name, access, age, phone, password, email }
+// Returns the newly created employee object with a 201 status.
 export async function POST(request: Request) {
     const session = await auth();
     if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();
@@ -56,6 +63,9 @@ export async function POST(request: Request) {
     }
 }
 
+// DELETE /api/employees?employeeId=<id>
+// Deletes an employee by their ID. Restricted to managers.
+// Query param: employeeId (integer)
 export async function DELETE(request: Request) {
     const session = await auth();
     if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();

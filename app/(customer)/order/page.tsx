@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import GoogleTranslate from "@/components/GoogleTranslate";
 import { JavaScriptScreenReader, useScreenReaderAnnounce } from "@/components/JavaScriptScreenReader";
 
+import VirtualKeyboard from "@/components/VirtualKeyboard";
+import type { KeyboardTheme, KeyboardLayout } from "@/components/VirtualKeyboard";
+
+
 interface MenuItem {
   itemid: number;
   itemname: string;
@@ -38,13 +42,6 @@ interface ChatMessage {
 
 const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
 const SUGAR_OPTIONS = ["120%", "100%", "75%", "50%", "25%", "0%"];
-
-declare global {
-  interface Window {
-    googleTranslateElementInit: () => void;
-    google: any;
-  }
-}
 
 export default function CustomerPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
@@ -255,8 +252,8 @@ export default function CustomerPage() {
 
       {/* Header stays mounted at all times so GoogleTranslate is never torn down */}
       <div className="relative flex items-center justify-center py-4 border-b border-border bg-card">
-        <h1 className="text-3xl font-display tracking-tight"><span>Taro Root</span></h1>
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
+        <h1 className="text-3xl font-display tracking-tight"><span translate="no">Taro Root</span></h1>
+        <div className="absolute right-4 top-1/2 -translate-y-1/2">
           <JavaScriptScreenReader announcements={announcements} />
           <GoogleTranslate />
         </div>
@@ -312,13 +309,13 @@ export default function CustomerPage() {
               {weather ? (
                 <>
                   <div className="text-foreground font-bold text-xl leading-none">
-                    <span>{weather.temperature_2m.toFixed(0)}°F</span>
+                    <span translate="no">{weather.temperature_2m.toFixed(0)}°F</span>
                   </div>
                   <div><span>{weather.cloud_cover > 50 ? "Cloudy" : "Clear"}</span></div>
-                  <div><span>Wind: {weather.wind_speed_10m} mph</span></div>
+                  <div><span>Wind: <span translate="no">{weather.wind_speed_10m} mph</span></span></div>
                   {weather.precipitation > 0 && (
                     <div className="text-accent font-medium">
-                      <span>Rain: {weather.precipitation}"</span>
+                      <span>Rain: <span translate="no">{weather.precipitation}"</span></span>
                     </div>
                   )}
 
@@ -358,7 +355,7 @@ export default function CustomerPage() {
                       <span>{item.itemname}</span>
                     </div>
                     <div className="text-base text-muted shrink-0">
-                      <span>${Number(item.price).toFixed(2)}</span>
+                      <span translate="no">${Number(item.price).toFixed(2)}</span>
                     </div>
                   </div>
                   {item.description && (
@@ -399,7 +396,7 @@ export default function CustomerPage() {
         </svg>
         <span>Cart</span>
         {cart.length > 0 && (
-          <span className="bg-white text-accent text-xs rounded-full px-2 py-0.5 font-medium">
+          <span translate="no" className="bg-white text-accent text-xs rounded-full px-2 py-0.5 font-medium">
             {cart.length}
           </span>
         )}
@@ -446,7 +443,7 @@ export default function CustomerPage() {
               <div key={item.id} className="border border-border rounded-lg p-3">
                 <div className="flex justify-between items-start gap-2">
                   <div className="font-medium"><span>{item.item}</span></div>
-                  <div className="text-muted shrink-0"><span>${item.price.toFixed(2)}</span></div>
+                  <div className="text-muted shrink-0"><span translate="no">${item.price.toFixed(2)}</span></div>
                 </div>
                 {item.addOns.length > 0 && (
                   <div className="text-xs text-muted mt-1">
@@ -486,7 +483,7 @@ export default function CustomerPage() {
         <div className="border-t border-border pt-4 mt-4">
           <div className="flex justify-between font-bold mb-3">
             <span>Total</span>
-            <span>${total.toFixed(2)}</span>
+            <span translate="no">${total.toFixed(2)}</span>
           </div>
           <button
             onClick={placeOrder}
@@ -530,7 +527,7 @@ export default function CustomerPage() {
               <p className="text-sm text-muted mb-2"><span>{customizing.description}</span></p>
             )}
             <p className="text-base text-muted mb-5">
-              <span>${Number(customizing.price).toFixed(2)}</span>
+              <span translate="no">${Number(customizing.price).toFixed(2)}</span>
             </p>
 
             {/* Temperature */}
@@ -587,7 +584,7 @@ export default function CustomerPage() {
                     }`}
                 >
                   <span>{ao.itemname}</span>
-                  <span className="text-muted"><span>+${Number(ao.price).toFixed(2)}</span></span>
+                  <span className="text-muted"><span translate="no">+${Number(ao.price).toFixed(2)}</span></span>
                 </button>
               ))}
             </div>
@@ -633,6 +630,7 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [toast, setToast] = useState<ToastState>({ visible: false, message: "" });
+  const [keyboardOpen, setKeyboardOpen] = useState<boolean>(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -642,6 +640,11 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [conversation, isOpen]);
+
+  // Close the virtual keyboard whenever the chat panel collapses.
+  useEffect(() => {
+    if (!isOpen) setKeyboardOpen(false);
+  }, [isOpen]);
 
   function showToast(msg: string) {
     setToast({ visible: true, message: msg });
@@ -656,6 +659,10 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
     const req: ChatMessage = { id: lastId, message: trimmed };
 
     setMessage("");
+    // Reset textarea height after clearing.
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
     setIsLoading(true);
     setConversation((prev) => [...prev, req]);
 
@@ -697,12 +704,24 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
     }
   }
 
-  function handleKeyDown(e: any) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendChatbotMessage(message);
     }
   }
+
+  // Keep React state in sync with changes the VirtualKeyboard makes directly
+  // to the textarea's DOM value, and resize the textarea to fit new content.
+  function handleTextareaInput(e: React.FormEvent<HTMLTextAreaElement>) {
+    const el = e.currentTarget;
+    setMessage(el.value);
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }
+
+  const kbTheme: KeyboardTheme = "light";
+  const kbLayout: KeyboardLayout = "qwerty";
 
   return (
     <div
@@ -724,7 +743,7 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
         role="alert"
         aria-live="assertive"
       >
-        {toast.message}
+        <span>{toast.message}</span>
       </div>
 
       {/* Header */}
@@ -732,7 +751,7 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
         className="pl-4 pt-3 pb-3 pr-3 font-semibold text-sm flex justify-between items-center"
         style={{ background: "var(--accent)", color: "#fff" }}
       >
-        <span className="pr-8">Tara</span>
+        <span className="pr-8" translate="no">Tara</span>
         <button
           onClick={() => {
             setIsOpen((o) => !o);
@@ -754,7 +773,13 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
               transform: isOpen ? "rotate(0deg)" : "rotate(180deg)",
             }}
           >
-            <path d="M2 5l5 5 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M2 5l5 5 5-5"
+              stroke="#fff"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
       </div>
@@ -789,7 +814,7 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
                     borderBottomLeftRadius: !isUser ? "4px" : undefined,
                   }}
                 >
-                  {cm.message}
+                  <span>{cm.message}</span>
                 </div>
               );
             })}
@@ -803,10 +828,22 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
                   borderBottomLeftRadius: "4px",
                 }}
               >
-                <span className="flex gap-1 items-center" style={{ color: "var(--muted)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: "var(--accent)" }} />
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: "var(--accent)" }} />
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: "var(--accent)" }} />
+                <span
+                  className="flex gap-1 items-center"
+                  style={{ color: "var(--muted)" }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:0ms]"
+                    style={{ background: "var(--accent)" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:150ms]"
+                    style={{ background: "var(--accent)" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:300ms]"
+                    style={{ background: "var(--accent)" }}
+                  />
                 </span>
               </div>
             )}
@@ -822,7 +859,11 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
             <textarea
               ref={textareaRef}
               className="flex-1 resize-none appearance-none bg-transparent border-none focus:ring-0 focus:outline-none text-sm leading-relaxed"
-              style={{ color: "var(--foreground)", maxHeight: "7rem", minHeight: "1.5rem" }}
+              style={{
+                color: "var(--foreground)",
+                maxHeight: "7rem",
+                minHeight: "1.5rem",
+              }}
               placeholder="Ask anything…"
               rows={1}
               value={message}
@@ -831,8 +872,44 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
                 e.target.style.height = "auto";
                 e.target.style.height = e.target.scrollHeight + "px";
               }}
+              // VirtualKeyboard dispatches native "input" events, so we also
+              // listen via onInput to stay in sync without duplicating onChange.
+              onInput={handleTextareaInput}
               onKeyDown={handleKeyDown}
+              onFocus={() => setKeyboardOpen(true)}
             />
+
+            {/* Virtual keyboard toggle */}
+            <button
+              onClick={() => {
+                setKeyboardOpen((o) => !o);
+                // Return focus to the textarea so the keyboard has a target.
+                textareaRef.current?.focus();
+              }}
+              className="mb-0.5 w-8 h-8 shrink-0 flex items-center justify-center rounded-full transition-all duration-150"
+              style={{
+                background: keyboardOpen ? "var(--accent)" : "var(--border)",
+                cursor: "pointer",
+              }}
+              aria-label={keyboardOpen ? "Hide virtual keyboard" : "Show virtual keyboard"}
+              aria-pressed={keyboardOpen}
+            >
+              {/* Keyboard icon */}
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="none">
+                <rect x="0.5" y="0.5" width="14" height="10" rx="1.5" stroke="#fff" strokeWidth="1.2" />
+                <rect x="2" y="2.5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="5" y="2.5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="8" y="2.5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="11" y="2.5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="2" y="5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="5" y="5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="8" y="5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="11" y="5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="3.5" y="7.5" width="8" height="1.5" rx="0.4" fill="#fff" />
+              </svg>
+            </button>
+
+            {/* Send button */}
             <button
               onClick={() => {
                 sendChatbotMessage(message);
@@ -841,20 +918,48 @@ function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
               className="mb-0.5 w-8 h-8 shrink-0 flex items-center justify-center rounded-full transition-all duration-150"
               style={{
                 background:
-                  message.trim() && !isLoading
-                    ? "var(--accent)"
-                    : "var(--border)",
+                  message.trim() && !isLoading ? "var(--accent)" : "var(--border)",
                 cursor: message.trim() && !isLoading ? "pointer" : "not-allowed",
               }}
               aria-label="Send message"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 12V2M2 7l5-5 5 5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M7 12V2M2 7l5-5 5 5"
+                  stroke="#fff"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Virtual keyboard — rendered in a portal via fixed positioning */}
+      {keyboardOpen && (<VirtualKeyboard
+        targetRef={textareaRef}
+        isOpen={keyboardOpen}
+        onClose={() => setKeyboardOpen(false)}
+        layout={kbLayout}
+        theme={kbTheme}
+        placement="right"
+        size="normal"
+        draggable
+        showClose
+        onKeyPress={(key) => {
+          // Send on Enter (VirtualKeyboard handles insertion; we just need
+          // to trigger send for the non-textarea Enter behaviour).
+          if (key === "Enter") {
+            // Give the DOM event a tick to flush before reading message state.
+            setTimeout(() => {
+              const current = textareaRef.current?.value ?? "";
+              if (current.trim()) sendChatbotMessage(current);
+            }, 0);
+          }
+        }}
+      />)}
     </div>
   );
 }

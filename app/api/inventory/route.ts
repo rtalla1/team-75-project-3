@@ -5,10 +5,13 @@ import {
     getInventory,
 } from "@/lib/queries/inventory";
 
+// Returns a 401 if the current session belongs to a non-manager user.
 function unauthorizedResponse() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
 }
 
+// GET /api/inventory
+// Returns all inventory items (ingredients). Restricted to managers.
 export async function GET() {
     const session = await auth();
     if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();
@@ -23,6 +26,10 @@ export async function GET() {
     }
 }
 
+// POST /api/inventory
+// Adds a new ingredient to the inventory. Restricted to managers.
+// Body: { ingredientname: string, quantity: number, units: string }
+// Returns the newly created inventory item with a 201 status.
 export async function POST(request: Request) {
     const session = await auth();
     if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();
@@ -46,6 +53,9 @@ export async function POST(request: Request) {
     }
 }
 
+// DELETE /api/inventory?ingredientId=<id>
+// Removes an ingredient from the inventory by its ID. Restricted to managers.
+// Query param: ingredientId (integer)
 export async function DELETE(request: Request) {
     const session = await auth();
     if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();

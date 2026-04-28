@@ -8,10 +8,13 @@ import {
     hasZReportToday,
 } from "@/lib/queries/reports";
 
+// Returns a 401 if the current session belongs to a non-manager user.
 function unauthorizedResponse() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
 }
 
+// Parses integer ID filters from query params, supporting both repeated keys
+// (e.g. ?menuItemId=1&menuItemId=2) and a single comma-separated key (e.g. ?menuItemIds=1,2).
 function parseIdFilters(searchParams: URLSearchParams, repeatedKey: string, csvKey: string): number[] {
     const repeatedValues = searchParams.getAll(repeatedKey);
     const csvValue = searchParams.get(csvKey);
@@ -26,6 +29,10 @@ function parseIdFilters(searchParams: URLSearchParams, repeatedKey: string, csvK
     );
 }
 
+// GET /api/manager/stats?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&menuItemId=...&ingredientId=...
+// Returns sales history, inventory usage history, and filter options for the manager dashboard.
+// Restricted to managers. Date range defaults to the last 14 days if not provided or invalid.
+// Also returns whether a Z report has already been generated today.
 export async function GET(request: Request) {
     const session = await auth();
     if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();

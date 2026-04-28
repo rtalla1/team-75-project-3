@@ -1,11 +1,13 @@
 import pool from "@/lib/db";
 import { MenuItem } from "@/lib/types";
 
+// Represents a single ingredient-to-menu-item mapping used when creating a menu item.
 export interface MenuIngredientInput {
   ingredientid: number;
-  quantity: number;
+  quantity: number; // amount of this ingredient consumed per order of the item
 }
 
+// Fetches all menu items from the database, ordered by itemid.
 export async function getMenu(): Promise<MenuItem[]> {
   const { rows } = await pool.query(
     "SELECT itemid, itemname, category, price, description FROM menu ORDER BY itemid"
@@ -13,6 +15,7 @@ export async function getMenu(): Promise<MenuItem[]> {
   return rows;
 }
 
+// Fetches all menu items belonging to a specific category, ordered by itemid.
 export async function getMenuByCategory(category: string): Promise<MenuItem[]> {
   const { rows } = await pool.query(
     "SELECT itemid, itemname, category, price, description FROM menu WHERE category = $1 ORDER BY itemid",
@@ -21,6 +24,8 @@ export async function getMenuByCategory(category: string): Promise<MenuItem[]> {
   return rows;
 }
 
+// Creates a new menu item and its ingredient mappings in a single transaction.
+// Rolls back if any insert fails, ensuring the menu and mapping tables stay in sync.
 export async function addMenuItem(
   itemName: string,
   category: string,
@@ -57,6 +62,7 @@ export async function addMenuItem(
   }
 }
 
+// Deletes a menu item by its ID. Does nothing if the ID doesn't exist.
 export async function deleteMenuItem(itemId: number): Promise<void> {
   await pool.query("DELETE FROM menu WHERE itemid = $1", [itemId]);
 }
