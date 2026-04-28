@@ -42,13 +42,6 @@ interface ChatMessage {
 const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
 const SUGAR_OPTIONS = ["120%", "100%", "75%", "50%", "25%", "0%"];
 
-declare global {
-  interface Window {
-    googleTranslateElementInit: () => void;
-    google: any;
-  }
-}
-
 export default function CustomerPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [addOns, setAddOns] = useState<MenuItem[]>([]);
@@ -236,7 +229,7 @@ export default function CustomerPage() {
 
       {/* Header stays mounted at all times so GoogleTranslate is never torn down */}
       <div className="relative flex items-center justify-center py-4 border-b border-border bg-card">
-        <h1 className="text-3xl font-display tracking-tight"><span>Taro Root</span></h1>
+        <h1 className="text-3xl font-display tracking-tight"><span translate="no">Taro Root</span></h1>
         <div className="absolute right-4 top-1/2 -translate-y-1/2">
           <GoogleTranslate />
         </div>
@@ -291,13 +284,13 @@ export default function CustomerPage() {
               {weather ? (
                 <>
                   <div className="text-foreground font-bold text-xl leading-none">
-                    <span>{weather.temperature_2m.toFixed(0)}°F</span>
+                    <span translate="no">{weather.temperature_2m.toFixed(0)}°F</span>
                   </div>
                   <div><span>{weather.cloud_cover > 50 ? "Cloudy" : "Clear"}</span></div>
-                  <div><span>Wind: {weather.wind_speed_10m} mph</span></div>
+                  <div><span>Wind: <span translate="no">{weather.wind_speed_10m} mph</span></span></div>
                   {weather.precipitation > 0 && (
                     <div className="text-accent font-medium">
-                      <span>Rain: {weather.precipitation}"</span>
+                      <span>Rain: <span translate="no">{weather.precipitation}"</span></span>
                     </div>
                   )}
 
@@ -337,7 +330,7 @@ export default function CustomerPage() {
                       <span>{item.itemname}</span>
                     </div>
                     <div className="text-base text-muted shrink-0">
-                      <span>${Number(item.price).toFixed(2)}</span>
+                      <span translate="no">${Number(item.price).toFixed(2)}</span>
                     </div>
                   </div>
                   {item.description && (
@@ -375,7 +368,7 @@ export default function CustomerPage() {
         </svg>
         <span>Cart</span>
         {cart.length > 0 && (
-          <span className="bg-white text-accent text-xs rounded-full px-2 py-0.5 font-medium">
+          <span translate="no" className="bg-white text-accent text-xs rounded-full px-2 py-0.5 font-medium">
             {cart.length}
           </span>
         )}
@@ -416,7 +409,7 @@ export default function CustomerPage() {
               <div key={item.id} className="border border-border rounded-lg p-3">
                 <div className="flex justify-between items-start gap-2">
                   <div className="font-medium"><span>{item.item}</span></div>
-                  <div className="text-muted shrink-0"><span>${item.price.toFixed(2)}</span></div>
+                  <div className="text-muted shrink-0"><span translate="no">${item.price.toFixed(2)}</span></div>
                 </div>
                 {item.addOns.length > 0 && (
                   <div className="text-xs text-muted mt-1">
@@ -452,7 +445,7 @@ export default function CustomerPage() {
         <div className="border-t border-border pt-4 mt-4">
           <div className="flex justify-between font-bold mb-3">
             <span>Total</span>
-            <span>${total.toFixed(2)}</span>
+            <span translate="no">${total.toFixed(2)}</span>
           </div>
           <button
             onClick={placeOrder}
@@ -496,7 +489,7 @@ export default function CustomerPage() {
               <p className="text-sm text-muted mb-2"><span>{customizing.description}</span></p>
             )}
             <p className="text-base text-muted mb-5">
-              <span>${Number(customizing.price).toFixed(2)}</span>
+              <span translate="no">${Number(customizing.price).toFixed(2)}</span>
             </p>
 
             {/* Temperature */}
@@ -553,7 +546,7 @@ export default function CustomerPage() {
                     }`}
                 >
                   <span>{ao.itemname}</span>
-                  <span className="text-muted"><span>+${Number(ao.price).toFixed(2)}</span></span>
+                  <span className="text-muted"><span translate="no">+${Number(ao.price).toFixed(2)}</span></span>
                 </button>
               ))}
             </div>
@@ -696,7 +689,7 @@ function ChatbotWindow() {
         role="alert"
         aria-live="assertive"
       >
-        {toast.message}
+        <span>{toast.message}</span>
       </div>
 
       {/* Header */}
@@ -704,7 +697,7 @@ function ChatbotWindow() {
         className="pl-4 pt-3 pb-3 pr-3 font-semibold text-sm flex justify-between items-center"
         style={{ background: "var(--accent)", color: "#fff" }}
       >
-        <span className="pr-8">Tara</span>
+        <span className="pr-8" translate="no">Tara</span>
         <button
           onClick={() => setIsOpen((o) => !o)}
           className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors duration-150"
@@ -762,7 +755,7 @@ function ChatbotWindow() {
                     borderBottomLeftRadius: !isUser ? "4px" : undefined,
                   }}
                 >
-                  {cm.message}
+                  <span>{cm.message}</span>
                 </div>
               );
             })}
