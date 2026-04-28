@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import GoogleTranslate from "@/components/GoogleTranslate";
+import { JavaScriptScreenReader, useScreenReaderAnnounce } from "@/components/JavaScriptScreenReader";
 
 interface MenuItem {
   itemid: number;
@@ -63,6 +64,8 @@ export default function CustomerPage() {
   const firstItemRef = useRef<HTMLButtonElement>(null);
   const lastClickedItemRef = useRef<HTMLButtonElement>(null);
 
+  const { announce, announcements } = useScreenReaderAnnounce();
+
   function showToast(message: string) {
     if (toastTimeoutRef.current !== null) {
       window.clearTimeout(toastTimeoutRef.current);
@@ -113,29 +116,41 @@ export default function CustomerPage() {
         { id: newId(), item: item.itemname, price: Number(item.price), addOns: [] },
       ]);
       showToast(`${item.itemname} added to cart`);
+      announce(`${item.itemname} added to cart for $${Number(item.price).toFixed(2)}`);
     } else {
       setCustomizing(item);
       setSelectedAddOns([]);
+      announce(`${item.itemname} customization window opened. Select your add-ons.`);
     }
   }
 
   function openRecommendation() {
     const name = getWeatherRecommendation();
     const item = menu.find((m) => m.itemname === name);
-    if (item) handleItemClick(item);
+    if (item) {
+      announce(`Weather recommendation: ${name}. Adding to cart.`);
+      handleItemClick(item);
+    }
   }
 
   function toggleExclusive(name: string, groupNames: string[]) {
     setSelectedAddOns((prev) => {
       const withoutGroup = prev.filter((a) => !groupNames.includes(a));
-      return prev.includes(name) ? withoutGroup : [...withoutGroup, name];
+      const newSelection = prev.includes(name) ? withoutGroup : [...withoutGroup, name];
+      announce(`Sugar level set to ${newSelection.find((s) => groupNames.includes(s)) || "none"}`);
+      return newSelection;
     });
   }
 
   function toggleAddOn(name: string) {
-    setSelectedAddOns((prev) =>
-      prev.includes(name) ? prev.filter((a) => a !== name) : [...prev, name]
-    );
+    setSelectedAddOns((prev) => {
+      const isSelected = prev.includes(name);
+      const newSelection = isSelected ? prev.filter((a) => a !== name) : [...prev, name];
+      const addon = addOns.find((ao) => ao.itemname === name);
+      const price = addon ? Number(addon.price).toFixed(2) : "0.00";
+      announce(isSelected ? `${name} removed` : `${name} added for $${price}`);
+      return newSelection;
+    });
   }
 
   function confirmCustomization() {
@@ -153,17 +168,23 @@ export default function CustomerPage() {
     if (editingId !== null) {
       setCart((prev) => prev.map((c) => (c.id === editingId ? { ...c, ...base } : c)));
       showToast(`${customizing.itemname} updated`);
+      announce(`${customizing.itemname} updated with ${selectedAddOns.length} add-ons for $${base.price.toFixed(2)}`);
     } else {
       setCart((prev) => [...prev, { id: newId(), ...base }]);
       showToast(`${customizing.itemname} added to cart`);
+      announce(`${customizing.itemname} added to cart with ${selectedAddOns.length} add-ons for $${base.price.toFixed(2)}`);
     }
-    closeCustomizing();
+    closeCustomizing(true);
   }
 
-  function closeCustomizing() {
+  function closeCustomizing(isFromConfirm: boolean = false) {
     setCustomizing(null);
     setEditingId(null);
     setSelectedAddOns([]);
+    // Only announce close if user manually closed without confirming
+    if (!isFromConfirm) {
+      announce("Customization window closed");
+    }
     // Return focus to the item that was clicked
     setTimeout(() => {
       lastClickedItemRef.current?.focus();
@@ -216,6 +237,7 @@ export default function CustomerPage() {
       });
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
 
+      announce(`Order placed successfully with ${cart.length} items for $${total.toFixed(2)}`);
       setCart([]);
       setCartOpen(false);
       await fetchWeather();
@@ -224,6 +246,7 @@ export default function CustomerPage() {
     } catch (err) {
       console.error("Failed to place order:", err);
       showToast("Could not place order. Please try again.");
+      announce("Error: Could not place order. Please try again.");
     }
   }
 
@@ -233,7 +256,8 @@ export default function CustomerPage() {
       {/* Header stays mounted at all times so GoogleTranslate is never torn down */}
       <div className="relative flex items-center justify-center py-4 border-b border-border bg-card">
         <h1 className="text-3xl font-display tracking-tight"><span>Taro Root</span></h1>
-        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
+          <JavaScriptScreenReader announcements={announcements} />
           <GoogleTranslate />
         </div>
       </div>
@@ -267,13 +291,14 @@ export default function CustomerPage() {
                 key={cat}
                 onClick={() => {
                   setActiveCategory(cat);
+                  announce(`Switched to ${cat} category. ${menu.filter((m) => m.category === cat).length} items available.`);
                   focusFirstMenuItem();
                 }}
                 aria-label={`View ${cat} category`}
                 aria-pressed={activeCategory === cat}
                 className={`px-3 py-3 rounded-lg text-base font-medium text-center whitespace-nowrap transition ${activeCategory === cat
-                    ? "bg-accent text-white"
-                    : "border border-border text-muted hover:border-accent"
+                  ? "bg-accent text-white"
+                  : "border border-border text-muted hover:border-accent"
                   }`}
               >
                 {/* Static category names don't need spans since they never change,
@@ -350,7 +375,10 @@ export default function CustomerPage() {
 
       {/* Floating cart button */}
       <button
-        onClick={() => setCartOpen(true)}
+        onClick={() => {
+          setCartOpen(true);
+          announce(`Cart opened. ${cart.length} item${cart.length !== 1 ? "s" : ""} in cart. Total: $${total.toFixed(2)}`);
+        }}
         aria-label={`Open cart with ${cart.length} item${cart.length !== 1 ? "s" : ""}`}
         className="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-white font-medium shadow-md hover:opacity-90 transition"
       >
@@ -387,7 +415,10 @@ export default function CustomerPage() {
           <div className="flex items-center gap-3">
             {cart.length > 0 && (
               <button
-                onClick={() => setCart([])}
+                onClick={() => {
+                  setCart([]);
+                  announce(`Cart cleared. All ${cart.length} items removed.`);
+                }}
                 aria-label="Remove all items from cart"
                 className="text-sm text-muted text-red-500 transition hover:underline"
               >
@@ -395,7 +426,10 @@ export default function CustomerPage() {
               </button>
             )}
             <button
-              onClick={() => setCartOpen(false)}
+              onClick={() => {
+                setCartOpen(false);
+                announce("Cart closed");
+              }}
               className="text-muted hover:text-foreground transition text-xl"
               aria-label="Close cart"
             >
@@ -422,7 +456,10 @@ export default function CustomerPage() {
                 <div className="flex gap-2 mt-2">
                   {isCustomizable(item.item) && (
                     <button
-                      onClick={() => startEditing(item)}
+                      onClick={() => {
+                        startEditing(item);
+                        announce(`${item.item} customization window opened for editing`);
+                      }}
                       aria-label={`Customize ${item.item}`}
                       className="text-xs text-accent hover:underline"
                     >
@@ -433,6 +470,7 @@ export default function CustomerPage() {
                     onClick={() => {
                       setCart((prev) => prev.filter((c) => c.id !== item.id));
                       showToast(`${item.item} removed from cart`);
+                      announce(`${item.item} removed from cart`);
                     }}
                     className="text-xs text-muted hover:underline text-red-500 ml-auto"
                     aria-label={`Remove ${item.item} from cart`}
@@ -477,7 +515,7 @@ export default function CustomerPage() {
       {customizing && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
-          onClick={closeCustomizing}
+          onClick={() => closeCustomizing(false)}
         >
           <div
             ref={customizingRef}
@@ -506,8 +544,8 @@ export default function CustomerPage() {
                     aria-label="Hot temperature"
                     aria-pressed={selectedAddOns.includes("Hot")}
                     className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${selectedAddOns.includes("Hot")
-                        ? "border-accent bg-accent-light text-accent"
-                        : "border-border text-muted hover:border-accent"
+                      ? "border-accent bg-accent-light text-accent"
+                      : "border-border text-muted hover:border-accent"
                       }`}
                   >
                     <span>Hot</span>
@@ -526,8 +564,8 @@ export default function CustomerPage() {
                   aria-label={`${s} sugar`}
                   aria-pressed={selectedAddOns.includes(s)}
                   className={`rounded-lg border py-2 text-sm transition ${selectedAddOns.includes(s)
-                      ? "border-accent bg-accent-light"
-                      : "border-border hover:border-accent"
+                    ? "border-accent bg-accent-light"
+                    : "border-border hover:border-accent"
                     }`}
                 >
                   <span>{s}</span>
@@ -544,8 +582,8 @@ export default function CustomerPage() {
                   aria-label={`${ao.itemname}, add $${Number(ao.price).toFixed(2)}`}
                   aria-pressed={selectedAddOns.includes(ao.itemname)}
                   className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${selectedAddOns.includes(ao.itemname)
-                      ? "border-accent bg-accent-light"
-                      : "border-border hover:border-accent"
+                    ? "border-accent bg-accent-light"
+                    : "border-border hover:border-accent"
                     }`}
                 >
                   <span>{ao.itemname}</span>
@@ -556,14 +594,17 @@ export default function CustomerPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={closeCustomizing}
+                onClick={() => closeCustomizing(false)}
                 aria-label="Cancel customization"
                 className="flex-1 rounded-lg border border-border py-2 font-medium hover:bg-background transition"
               >
                 <span>Cancel</span>
               </button>
               <button
-                onClick={confirmCustomization}
+                onClick={() => {
+                  announce("Item added to cart");
+                  confirmCustomization();
+                }}
                 aria-label={editingId !== null ? "Save changes to item" : "Add customized item to order"}
                 className="flex-1 rounded-lg bg-accent py-2 text-white font-medium hover:opacity-90 transition"
               >
@@ -576,7 +617,7 @@ export default function CustomerPage() {
 
       {/* chatbot window */}
       <div className="fixed bottom-4 left-45">
-        <ChatbotWindow />
+        <ChatbotWindow announce={announce} />
       </div>
     </main>
   );
@@ -584,7 +625,7 @@ export default function CustomerPage() {
 
 type ToastState = { visible: boolean; message: string };
 
-function ChatbotWindow() {
+function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
   const [conversation, setConversation] = useState<ChatMessage[]>([
     { id: "init", message: "Hello! I'm Tara. What can I help you with today?" },
   ]);
@@ -618,6 +659,10 @@ function ChatbotWindow() {
     setIsLoading(true);
     setConversation((prev) => [...prev, req]);
 
+    if (announce) {
+      announce(`Message sent: ${trimmed}`);
+    }
+
     try {
       const result = await fetch("/api/ai", {
         method: "POST",
@@ -629,15 +674,24 @@ function ChatbotWindow() {
         setMessage(trimmed);
         setConversation((prev) => prev.slice(0, -1));
         showToast("Something went wrong. Please try again.");
+        if (announce) {
+          announce("Error: Failed to send message");
+        }
         return;
       }
 
       const body: ChatMessage = await result.json();
       setConversation((prev) => [...prev, body]);
+      if (announce) {
+        announce(`Tara: ${body.message}`);
+      }
     } catch {
       setMessage(trimmed);
       setConversation((prev) => prev.slice(0, -1));
       showToast("Network error. Please check your connection.");
+      if (announce) {
+        announce("Error: Network connection failed");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -680,7 +734,12 @@ function ChatbotWindow() {
       >
         <span className="pr-8">Tara</span>
         <button
-          onClick={() => setIsOpen((o) => !o)}
+          onClick={() => {
+            setIsOpen((o) => !o);
+            if (announce) {
+              announce(isOpen ? "Chat window collapsed" : "Chat window expanded");
+            }
+          }}
           className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors duration-150"
           style={{ background: "rgba(255,255,255,0.15)" }}
           aria-label={isOpen ? "Collapse chat" : "Expand chat"}
@@ -775,7 +834,9 @@ function ChatbotWindow() {
               onKeyDown={handleKeyDown}
             />
             <button
-              onClick={() => sendChatbotMessage(message)}
+              onClick={() => {
+                sendChatbotMessage(message);
+              }}
               disabled={!message.trim() || isLoading}
               className="mb-0.5 w-8 h-8 shrink-0 flex items-center justify-center rounded-full transition-all duration-150"
               style={{
