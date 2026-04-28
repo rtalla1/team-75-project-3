@@ -539,6 +539,7 @@ export default function VirtualKeyboard({
       <div
         ref={kbRef}
         className={className}
+        translate="no"
         style={{
           position: "fixed",
           left: pos.x,
