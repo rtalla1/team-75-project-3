@@ -77,6 +77,9 @@ const GoogleTranslate: React.FC = () => {
           const el = n as Element;
           if (el.closest(".goog-te-banner-frame, .skiptranslate, .goog-te-balloon-frame")) return false;
           if (el.tagName === "FONT") return false;
+          // A subtree that already contains <font> descendants is Google's
+          // translation output, not new React content. React doesn't render <font>.
+          if (el.querySelector("font")) return false;
           const cls = typeof el.className === "string" ? el.className : "";
           if (cls.includes("goog-")) return false;
           // Purely structural mutations (no translatable text) shouldn't trigger a retranslate

@@ -268,7 +268,7 @@ export default function CustomerPage() {
                 }}
                 aria-label={`View ${cat} category`}
                 aria-pressed={activeCategory === cat}
-                className={`px-3 py-3 rounded-lg text-base font-medium text-center whitespace-nowrap transition ${activeCategory === cat
+                className={`px-3 py-3 rounded-lg text-base font-medium text-center leading-tight transition ${activeCategory === cat
                     ? "bg-accent text-white"
                     : "border border-border text-muted hover:border-accent"
                   }`}
