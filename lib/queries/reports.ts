@@ -302,35 +302,38 @@ export async function zGeneratedTime(): Promise<string | null> {
 // Generates an X report: a non-destructive sales snapshot from the last Z report (or start of day) until now.
 // Does not modify any database state.
 export async function generateXReport(): Promise<ReportDetails> {
-    //query the database
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    // Compute start-of-day in America/Chicago, not server local time
+    const now = new Date();
+    const from = new Date(
+        now.toLocaleString("en-US", { timeZone: "America/Chicago" })
+    );
+    from.setHours(0, 0, 0, 0);
 
-    const from = startOfDay.toISOString();
-    const to = new Date().toISOString();
+    const fromIso = from.toISOString();
+    const toIso = now.toISOString();
 
     const zToday = await hasZReportToday();
     if (zToday) {
         return {
             type: "x",
-            generatedAt: to,
-            from,
-            to,
+            generatedAt: toIso,
+            from: fromIso,
+            to: toIso,
             totalOrders: 0,
             totalRevenue: 0,
             hourly: Array.from({ length: 24 }, (_, hour) => ({ hour, orders: 0, revenue: 0 })),
         };
     }
 
-    const hourly = await getHourlyMetrics(from, to);
+    const hourly = await getHourlyMetrics(fromIso, toIso);
     const totalOrders = hourly.reduce((sum, h) => sum + h.orders, 0);
     const totalRevenue = hourly.reduce((sum, h) => sum + h.revenue, 0);
 
     return {
         type: "x",
-        generatedAt: to,
-        from,
-        to,
+        generatedAt: toIso,
+        from: fromIso,
+        to: toIso,
         totalOrders,
         totalRevenue,
         hourly,
