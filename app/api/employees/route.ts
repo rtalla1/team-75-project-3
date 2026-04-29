@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { addEmployee, deleteEmployee, getEmployees } from "@/lib/queries/employees";
+import { addEmployee, deleteEmployee, getEmployees, updateEmployee } from "@/lib/queries/employees";
 
 // Returns a 401 if the current session belongs to a non-manager user.
 function unauthorizedResponse() {
@@ -83,6 +83,40 @@ export async function DELETE(request: Request) {
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error("DELETE /api/employees error:", message);
+        return Response.json({ error: message }, { status: 500 });
+    }
+}
+
+export async function PATCH(request: Request) {
+    const session = await auth();
+    if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();
+
+    const { searchParams } = new URL(request.url);
+    const employeeId = Number(searchParams.get("employeeId"));
+    if (!Number.isInteger(employeeId)) {
+        return Response.json({ error: "employeeId is required" }, { status: 400 });
+    }
+
+    try {
+        const body = await request.json();
+        const name = String(body?.name ?? "").trim();
+        const access = String(body?.access ?? "").trim();
+        const age = Number(body?.age);
+        const phone = String(body?.phone ?? "").trim();
+        const email = String(body?.email ?? "").trim();
+
+        if (!name || !access || Number.isNaN(age) || age <= 0 || !phone || !email) {
+            return Response.json(
+                { error: "name, access, age, phone, and email are required" },
+                { status: 400 }
+            );
+        }
+
+        const updated = await updateEmployee(employeeId, name, access, age, phone, email);
+        return Response.json(updated);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("PATCH /api/employees error:", message);
         return Response.json({ error: message }, { status: 500 });
     }
 }

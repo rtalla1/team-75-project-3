@@ -66,3 +66,20 @@ export async function addMenuItem(
 export async function deleteMenuItem(itemId: number): Promise<void> {
   await pool.query("DELETE FROM menu WHERE itemid = $1", [itemId]);
 }
+
+export async function updateMenuItem(
+    itemId: number,
+    itemname: string,
+    category: string,
+    price: number,
+    description: string
+): Promise<MenuItem> {
+    const { rows } = await pool.query(
+        `UPDATE menu
+         SET itemname=$1, category=$2, price=$3, description=$4
+         WHERE itemid=$5
+         RETURNING itemid, itemname, category, price, description`,
+        [itemname, category, price, description, itemId]
+    );
+    return rows[0];
+}

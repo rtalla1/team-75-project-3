@@ -3,6 +3,7 @@ import {
     addInventoryItem,
     deleteInventoryItem,
     getInventory,
+    updateInventoryItem
 } from "@/lib/queries/inventory";
 
 // Returns a 401 if the current session belongs to a non-manager user.
@@ -73,6 +74,38 @@ export async function DELETE(request: Request) {
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error("DELETE /api/inventory error:", message);
+        return Response.json({ error: message }, { status: 500 });
+    }
+}
+
+export async function PATCH(request: Request) {
+    const session = await auth();
+    if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();
+
+    const { searchParams } = new URL(request.url);
+    const ingredientId = Number(searchParams.get("ingredientId"));
+    if (!Number.isInteger(ingredientId)) {
+        return Response.json({ error: "ingredientId is required" }, { status: 400 });
+    }
+
+    try {
+        const body = await request.json();
+        const ingredientname = String(body?.ingredientname ?? "").trim();
+        const units = String(body?.units ?? "").trim();
+        const quantity = Number(body?.quantity);
+
+        if (!ingredientname || !units || Number.isNaN(quantity) || quantity < 0) {
+            return Response.json(
+                { error: "ingredientname, quantity, and units are required" },
+                { status: 400 }
+            );
+        }
+
+        const updated = await updateInventoryItem(ingredientId, ingredientname, quantity, units);
+        return Response.json(updated);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("PATCH /api/inventory error:", message);
         return Response.json({ error: message }, { status: 500 });
     }
 }
