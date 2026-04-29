@@ -41,7 +41,16 @@ interface ChatMessage {
 
 
 const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
-const SUGAR_OPTIONS = ["120%", "100%", "75%", "50%", "25%", "0%"];
+const SUGAR_OPTIONS = ["125%", "75%", "50%", "25%", "0%"];
+const SIZE_OPTIONS = [
+  { label: "Small", value: "Small", price: 0.5 },
+  { label: "Large", value: "Large", price: 0.5 },
+];
+const ICE_OPTIONS = [
+  { label: "No ice", value: "No ice" },
+  { label: "Less ice", value: "Less ice" },
+  { label: "Extra ice", value: "Extra ice" },
+];
 
 export default function CustomerPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
@@ -104,6 +113,7 @@ export default function CustomerPage() {
   }, [customizing]);
 
   const filtered = menu.filter((i) => i.category === activeCategory);
+  const isDrink = customizing?.category === "Classic Drink" || customizing?.category === "Fruit Drink";
   const total = cart.reduce((s, i) => s + i.price, 0);
 
   function handleItemClick(item: MenuItem) {
@@ -130,11 +140,12 @@ export default function CustomerPage() {
     }
   }
 
-  function toggleExclusive(name: string, groupNames: string[]) {
+  function toggleExclusive(name: string, groupNames: string[], label: string) {
     setSelectedAddOns((prev) => {
       const withoutGroup = prev.filter((a) => !groupNames.includes(a));
       const newSelection = prev.includes(name) ? withoutGroup : [...withoutGroup, name];
-      announce(`Sugar level set to ${newSelection.find((s) => groupNames.includes(s)) || "none"}`);
+      const selectedValue = newSelection.find((s) => groupNames.includes(s)) || "regular";
+      announce(`${label} set to ${selectedValue}`);
       return newSelection;
     });
   }
@@ -156,9 +167,18 @@ export default function CustomerPage() {
       const a = addOns.find((ao) => ao.itemname === name);
       return sum + (a ? Number(a.price) : 0);
     }, 0);
+    const sizeTotal = SIZE_OPTIONS.reduce((sum, option) => {
+      if (selectedAddOns.includes(option.value)) {
+        if (option.value === "Small") {
+          return sum - option.price;
+        }
+        return sum + option.price;
+      }
+      return sum;
+    }, 0);
     const base = {
       item: customizing.itemname,
-      price: Number(customizing.price) + addOnTotal,
+      price: Number(customizing.price) + addOnTotal + sizeTotal,
       addOns: selectedAddOns,
     };
 
@@ -294,8 +314,8 @@ export default function CustomerPage() {
                 aria-label={`View ${cat} category`}
                 aria-pressed={activeCategory === cat}
                 className={`px-3 py-3 rounded-lg text-base font-medium text-center leading-tight transition ${activeCategory === cat
-                    ? "bg-accent text-white"
-                    : "border border-border text-muted hover:border-accent"
+                  ? "bg-accent text-white"
+                  : "border border-border text-muted hover:border-accent"
                   }`}
               >
                 {/* Static category names don't need spans since they never change,
@@ -315,7 +335,7 @@ export default function CustomerPage() {
                   <div><span>Wind: <span translate="no">{weather.wind_speed_10m} mph</span></span></div>
                   {weather.precipitation > 0 && (
                     <div className="text-accent font-medium">
-                      <span>Rain: <span translate="no">{weather.precipitation}"</span></span>
+                      <span>Rain: <span translate="no">{weather.precipitation}&quot;</span></span>
                     </div>
                   )}
 
@@ -557,7 +577,7 @@ export default function CustomerPage() {
               {SUGAR_OPTIONS.map((s) => (
                 <button
                   key={s}
-                  onClick={() => toggleExclusive(s, SUGAR_OPTIONS)}
+                  onClick={() => toggleExclusive(s, SUGAR_OPTIONS, "Sugar level")}
                   aria-label={`${s} sugar`}
                   aria-pressed={selectedAddOns.includes(s)}
                   className={`rounded-lg border py-2 text-sm transition ${selectedAddOns.includes(s)
@@ -569,6 +589,51 @@ export default function CustomerPage() {
                 </button>
               ))}
             </div>
+
+            {isDrink && (
+              <>
+                <p className="text-sm font-medium mb-2"><span>Size</span></p>
+                <div className="grid grid-cols-2 gap-2 mb-5" role="group" aria-label="Size options">
+                  {SIZE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => toggleExclusive(option.value, SIZE_OPTIONS.map((o) => o.value), "Size")}
+                      aria-label={`${option.label} size, add $${option.price.toFixed(2)}`}
+                      aria-pressed={selectedAddOns.includes(option.value)}
+                      className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${selectedAddOns.includes(option.value)
+                        ? "border-accent bg-accent-light"
+                        : "border-border hover:border-accent"
+                        }`}
+                    >
+                      <span>{option.label}</span>
+                      <span className="text-muted">
+                        <span translate="no">
+                          {option.label === "Small" ? "-" : "+"}${option.price.toFixed(2)}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-sm font-medium mb-2"><span>Ice Level</span></p>
+                <div className="grid grid-cols-3 gap-2 mb-5" role="group" aria-label="Ice level options">
+                  {ICE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => toggleExclusive(option.value, ICE_OPTIONS.map((o) => o.value), "Ice level")}
+                      aria-label={`${option.label} ice`}
+                      aria-pressed={selectedAddOns.includes(option.value)}
+                      className={`rounded-lg border py-2 text-sm transition ${selectedAddOns.includes(option.value)
+                        ? "border-accent bg-accent-light"
+                        : "border-border hover:border-accent"
+                        }`}
+                    >
+                      <span>{option.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             <p className="text-sm font-medium mb-2"><span>Toppings</span></p>
             <div className="space-y-2 mb-6" role="group" aria-label="Topping options">
