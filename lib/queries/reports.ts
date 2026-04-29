@@ -270,13 +270,13 @@ export async function getInventoryUsageHistoryByDateRange(
 // Returns a full 24-element array with zeros for inactive hours.
 async function getHourlyMetrics(fromIso: string, toIso: string): Promise<HourlyMetric[]> {
     const { rows } = await pool.query(
-        `SELECT EXTRACT(HOUR FROM "time")::int AS hour,
+        `SELECT EXTRACT(HOUR FROM "time" AT TIME ZONE 'America/Chicago')::int AS hour,
             COUNT(*)::int AS orders,
             COALESCE(SUM(price), 0)::float8 AS revenue
      FROM orderhistory
      WHERE "time" >= $1::timestamptz
        AND "time" <= $2::timestamptz
-     GROUP BY EXTRACT(HOUR FROM "time")
+     GROUP BY EXTRACT(HOUR FROM "time" AT TIME ZONE 'America/Chicago')
      ORDER BY hour`,
         [fromIso, toIso]
     );
@@ -296,10 +296,14 @@ export async function hasZReportToday(): Promise<boolean> {
 // Does not modify any database state.
 export async function generateXReport(): Promise<ReportDetails> {
     //query the database
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
     const { rows: resetRows } = await pool.query(
-        `SELECT COALESCE(MAX(generated_at), CURRENT_DATE::timestamptz) AS reset_at
-     FROM zreport_log
-     WHERE report_date = CURRENT_DATE`
+        `SELECT COALESCE(MAX(generated_at), $1::timestamptz) AS reset_at
+        FROM zreport_log
+        WHERE report_date = CURRENT_DATE`,
+        [startOfDay.toISOString()]
     );
 
     const from = new Date(resetRows[0].reset_at).toISOString();
