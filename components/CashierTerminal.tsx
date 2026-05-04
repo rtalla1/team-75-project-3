@@ -14,6 +14,7 @@ interface CartItem {
   item: string;
   price: number;
   addOns: string[];
+  quantity: number;
 }
 
 const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
@@ -54,14 +55,14 @@ export default function CashierTerminal() {
   }, []);
 
   const filtered = menu.filter((i) => i.category === activeCategory);
-  const total = cart.reduce((s, i) => s + i.price, 0);
+  const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const isDrink =
     customizing?.category === "Classic Drink" ||
     customizing?.category === "Fruit Drink";
 
   function handleItemClick(item: MenuItem) {
     if (item.category === "Food") {
-      setCart([...cart, { item: item.itemname, price: Number(item.price), addOns: [] }]);
+      setCart([...cart, { item: item.itemname, price: Number(item.price), addOns: [], quantity: 1 }]);
     } else {
       setCustomizing(item);
       setSelectedAddOns([]);
@@ -102,6 +103,7 @@ export default function CashierTerminal() {
         item: customizing.itemname,
         price: Number(customizing.price) + addOnTotal + sizeTotal,
         addOns: selectedAddOns,
+        quantity: 1,
       },
     ]);
     setCustomizing(null);
@@ -142,11 +144,10 @@ export default function CashierTerminal() {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                activeCategory === cat
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeCategory === cat
                   ? "bg-accent text-white"
                   : "bg-card border border-border text-muted hover:border-accent"
-              }`}
+                }`}
             >
               {cat}
             </button>
@@ -234,11 +235,10 @@ export default function CashierTerminal() {
                 <div className="flex gap-2 mb-5">
                   <button
                     onClick={() => toggleAddOn("Hot")}
-                    className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${
-                      selectedAddOns.includes("Hot")
+                    className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${selectedAddOns.includes("Hot")
                         ? "border-accent bg-accent-light text-accent"
                         : "border-border text-muted hover:border-accent"
-                    }`}
+                      }`}
                   >
                     Hot
                   </button>
@@ -253,11 +253,10 @@ export default function CashierTerminal() {
                 <button
                   key={opt}
                   onClick={() => toggleExclusive(opt, SUGAR_OPTIONS)}
-                  className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${
-                    selectedAddOns.includes(opt)
+                  className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${selectedAddOns.includes(opt)
                       ? "border-accent bg-accent-light text-accent"
                       : "border-border text-muted hover:border-accent"
-                  }`}
+                    }`}
                 >
                   {opt}
                 </button>
@@ -278,11 +277,10 @@ export default function CashierTerminal() {
                           SIZE_OPTIONS.map((o) => o.value)
                         )
                       }
-                      className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${
-                        selectedAddOns.includes(option.value)
+                      className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${selectedAddOns.includes(option.value)
                           ? "border-accent bg-accent-light"
                           : "border-border hover:border-accent"
-                      }`}
+                        }`}
                     >
                       <span>{option.label}</span>
                       <span className="text-muted">
@@ -303,11 +301,10 @@ export default function CashierTerminal() {
                           ICE_OPTIONS.map((o) => o.value)
                         )
                       }
-                      className={`rounded-lg border py-2 text-sm transition ${
-                        selectedAddOns.includes(option.value)
+                      className={`rounded-lg border py-2 text-sm transition ${selectedAddOns.includes(option.value)
                           ? "border-accent bg-accent-light"
                           : "border-border hover:border-accent"
-                      }`}
+                        }`}
                     >
                       {option.label}
                     </button>
@@ -323,11 +320,10 @@ export default function CashierTerminal() {
                 <button
                   key={ao.itemid}
                   onClick={() => toggleAddOn(ao.itemname)}
-                  className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${
-                    selectedAddOns.includes(ao.itemname)
+                  className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${selectedAddOns.includes(ao.itemname)
                       ? "border-accent bg-accent-light"
                       : "border-border hover:border-accent"
-                  }`}
+                    }`}
                 >
                   <span>{ao.itemname}</span>
                   <span className="text-muted">+${Number(ao.price).toFixed(2)}</span>

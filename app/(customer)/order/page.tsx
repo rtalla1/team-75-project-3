@@ -21,6 +21,7 @@ interface CartItem {
   item: string;
   price: number;
   addOns: string[];
+  quantity: number;
 }
 
 function newId() {
@@ -114,13 +115,14 @@ export default function CustomerPage() {
 
   const filtered = menu.filter((i) => i.category === activeCategory);
   const isDrink = customizing?.category === "Classic Drink" || customizing?.category === "Fruit Drink";
-  const total = cart.reduce((s, i) => s + i.price, 0);
+  const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const cartItemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
 
   function handleItemClick(item: MenuItem) {
     if (item.category === "Food") {
       setCart((prev) => [
         ...prev,
-        { id: newId(), item: item.itemname, price: Number(item.price), addOns: [] },
+        { id: newId(), item: item.itemname, price: Number(item.price), addOns: [], quantity: 1 },
       ]);
       showToast(`${item.itemname} added to cart`);
       announce(`${item.itemname} added to cart for $${Number(item.price).toFixed(2)}`);
@@ -176,10 +178,14 @@ export default function CustomerPage() {
       }
       return sum;
     }, 0);
+    const existingQuantity = editingId
+      ? cart.find((c) => c.id === editingId)?.quantity ?? 1
+      : 1;
     const base = {
       item: customizing.itemname,
       price: Number(customizing.price) + addOnTotal + sizeTotal,
       addOns: selectedAddOns,
+      quantity: existingQuantity,
     };
 
     if (editingId !== null) {
@@ -226,6 +232,19 @@ export default function CustomerPage() {
     setCustomizing(menuItem);
     setSelectedAddOns(cartItem.addOns);
     setEditingId(cartItem.id);
+  }
+
+  function updateCartQuantity(id: string, delta: number) {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const nextQuantity = Math.max(1, item.quantity + delta);
+        if (nextQuantity !== item.quantity) {
+          announce(`${item.item} quantity set to ${nextQuantity}`);
+        }
+        return { ...item, quantity: nextQuantity };
+      })
+    );
   }
 
   function isCustomizable(itemName: string) {
@@ -394,9 +413,9 @@ export default function CustomerPage() {
       <button
         onClick={() => {
           setCartOpen(true);
-          announce(`Cart opened. ${cart.length} item${cart.length !== 1 ? "s" : ""} in cart. Total: $${total.toFixed(2)}`);
+          announce(`Cart opened. ${cartItemCount} item${cartItemCount !== 1 ? "s" : ""} in cart. Total: $${total.toFixed(2)}`);
         }}
-        aria-label={`Open cart with ${cart.length} item${cart.length !== 1 ? "s" : ""}`}
+        aria-label={`Open cart with ${cartItemCount} item${cartItemCount !== 1 ? "s" : ""}`}
         className="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-white font-medium shadow-md hover:opacity-90 transition"
       >
         <svg
@@ -415,9 +434,9 @@ export default function CustomerPage() {
           <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
         </svg>
         <span>Cart</span>
-        {cart.length > 0 && (
+        {cartItemCount > 0 && (
           <span translate="no" className="bg-white text-accent text-xs rounded-full px-2 py-0.5 font-medium">
-            {cart.length}
+            {cartItemCount}
           </span>
         )}
       </button>
@@ -434,7 +453,7 @@ export default function CustomerPage() {
               <button
                 onClick={() => {
                   setCart([]);
-                  announce(`Cart cleared. All ${cart.length} items removed.`);
+                  announce(`Cart cleared. All ${cartItemCount} items removed.`);
                 }}
                 aria-label="Remove all items from cart"
                 className="text-sm text-muted text-red-500 transition hover:underline"
@@ -462,8 +481,29 @@ export default function CustomerPage() {
             cart.map((item) => (
               <div key={item.id} className="border border-border rounded-lg p-3">
                 <div className="flex justify-between items-start gap-2">
-                  <div className="font-medium"><span>{item.item}</span></div>
-                  <div className="text-muted shrink-0"><span translate="no">${item.price.toFixed(2)}</span></div>
+                  <div>
+                    <div className="font-medium"><span>{item.item}</span></div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => updateCartQuantity(item.id, -1)}
+                        aria-label={`Decrease ${item.item} quantity`}
+                        className="h-6 w-6 rounded-full border border-border text-xs text-muted hover:border-accent"
+                      >
+                        <span>-</span>
+                      </button>
+                      <span className="text-xs" translate="no">{item.quantity}</span>
+                      <button
+                        onClick={() => updateCartQuantity(item.id, 1)}
+                        aria-label={`Increase ${item.item} quantity`}
+                        className="h-6 w-6 rounded-full border border-border text-xs text-muted hover:border-accent"
+                      >
+                        <span>+</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-muted shrink-0">
+                    <span translate="no">${(item.price * item.quantity).toFixed(2)}</span>
+                  </div>
                 </div>
                 {item.addOns.length > 0 && (
                   <div className="text-xs text-muted mt-1">
@@ -589,30 +629,30 @@ export default function CustomerPage() {
                 </button>
               ))}
             </div>
-            
+
             <p className="text-sm font-medium mb-2"><span>Size</span></p>
-                <div className="grid grid-cols-2 gap-2 mb-5" role="group" aria-label="Size options">
-                  {SIZE_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => toggleExclusive(option.value, SIZE_OPTIONS.map((o) => o.value), "Size")}
-                      aria-label={`${option.label} size, add $${option.price.toFixed(2)}`}
-                      aria-pressed={selectedAddOns.includes(option.value)}
-                      className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${selectedAddOns.includes(option.value)
-                        ? "border-accent bg-accent-light"
-                        : "border-border hover:border-accent"
-                        }`}
-                    >
-                      <span>{option.label}</span>
-                      <span className="text-muted">
-                        <span translate="no">
-                          {option.label === "Small" ? "-" : "+"}${option.price.toFixed(2)}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              
+            <div className="grid grid-cols-2 gap-2 mb-5" role="group" aria-label="Size options">
+              {SIZE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => toggleExclusive(option.value, SIZE_OPTIONS.map((o) => o.value), "Size")}
+                  aria-label={`${option.label} size, add $${option.price.toFixed(2)}`}
+                  aria-pressed={selectedAddOns.includes(option.value)}
+                  className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${selectedAddOns.includes(option.value)
+                    ? "border-accent bg-accent-light"
+                    : "border-border hover:border-accent"
+                    }`}
+                >
+                  <span>{option.label}</span>
+                  <span className="text-muted">
+                    <span translate="no">
+                      {option.label === "Small" ? "-" : "+"}${option.price.toFixed(2)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+
             {isDrink && (
               <>
                 <p className="text-sm font-medium mb-2"><span>Ice Level</span></p>
