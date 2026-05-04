@@ -33,3 +33,19 @@ export async function addInventoryItem(
 export async function deleteInventoryItem(ingredientId: number): Promise<void> {
     await pool.query("DELETE FROM inventory WHERE ingredientid = $1", [ingredientId]);
 }
+
+export async function updateInventoryItem(
+    ingredientId: number,
+    ingredientname: string,
+    quantity: number,
+    units: string
+): Promise<InventoryRecord> {
+    const { rows } = await pool.query(
+        `UPDATE inventory
+         SET ingredientname=$1, quantity=$2, units=$3
+         WHERE ingredientid=$4
+         RETURNING ingredientid, ingredientname, quantity, units`,
+        [ingredientname, quantity, units, ingredientId]
+    );
+    return rows[0];
+}

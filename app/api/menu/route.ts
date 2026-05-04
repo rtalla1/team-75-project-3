@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { addMenuItem, deleteMenuItem, getMenu, getMenuByCategory } from "@/lib/queries/menu";
+import { addMenuItem, deleteMenuItem, getMenu, getMenuByCategory, updateMenuItem } from "@/lib/queries/menu";
 
 // GET /api/menu?category=<category>
 // Returns all menu items, optionally filtered by category.
@@ -98,4 +98,37 @@ export async function DELETE(request: Request) {
     console.error("DELETE /api/menu error:", message);
     return Response.json({ error: message }, { status: 500 });
   }
+}
+
+export async function PATCH(request: Request) {
+    const session = await auth();
+    if (!session?.user?.role || session.user.role !== "manager") return unauthorizedResponse();
+
+    const { searchParams } = new URL(request.url);
+    const itemId = Number(searchParams.get("itemId"));
+    if (!Number.isInteger(itemId)) {
+        return Response.json({ error: "itemId is required" }, { status: 400 });
+    }
+
+    try {
+        const body = await request.json();
+        const itemname = String(body?.itemname ?? "").trim();
+        const category = String(body?.category ?? "").trim();
+        const price = Number(body?.price);
+        const description = String(body?.description ?? "").trim();
+
+        if (!itemname || !category || Number.isNaN(price) || price < 0) {
+            return Response.json(
+                { error: "itemname, category, and price are required" },
+                { status: 400 }
+            );
+        }
+
+        const updated = await updateMenuItem(itemId, itemname, category, price, description);
+        return Response.json(updated);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("PATCH /api/menu error:", message);
+        return Response.json({ error: message }, { status: 500 });
+    }
 }

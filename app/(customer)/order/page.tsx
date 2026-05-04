@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import GoogleTranslate from "@/components/GoogleTranslate";
+import { JavaScriptScreenReader, useScreenReaderAnnounce } from "@/components/JavaScriptScreenReader";
+
+import VirtualKeyboard from "@/components/VirtualKeyboard";
+import type { KeyboardTheme, KeyboardLayout } from "@/components/VirtualKeyboard";
+
 
 interface MenuItem {
   itemid: number;
@@ -35,15 +40,17 @@ interface ChatMessage {
 }
 
 
-const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food", "Seasonal Drink"];
-const SUGAR_OPTIONS = ["120%", "100%", "75%", "50%", "25%", "0%"];
-
-declare global {
-  interface Window {
-    googleTranslateElementInit: () => void;
-    google: any;
-  }
-}
+const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
+const SUGAR_OPTIONS = ["125%", "75%", "50%", "25%", "0%"];
+const SIZE_OPTIONS = [
+  { label: "Small", value: "Small", price: 0.5 },
+  { label: "Large", value: "Large", price: 0.5 },
+];
+const ICE_OPTIONS = [
+  { label: "No ice", value: "No ice" },
+  { label: "Less ice", value: "Less ice" },
+  { label: "Extra ice", value: "Extra ice" },
+];
 
 export default function CustomerPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
@@ -62,6 +69,8 @@ export default function CustomerPage() {
   const customizingRef = useRef<HTMLDivElement>(null);
   const firstItemRef = useRef<HTMLButtonElement>(null);
   const lastClickedItemRef = useRef<HTMLButtonElement>(null);
+
+  const { announce, announcements } = useScreenReaderAnnounce();
 
   function showToast(message: string) {
     if (toastTimeoutRef.current !== null) {
@@ -104,6 +113,7 @@ export default function CustomerPage() {
   }, [customizing]);
 
   const filtered = menu.filter((i) => i.category === activeCategory);
+  const isDrink = customizing?.category === "Classic Drink" || customizing?.category === "Fruit Drink";
   const total = cart.reduce((s, i) => s + i.price, 0);
 
   function handleItemClick(item: MenuItem) {
@@ -113,29 +123,42 @@ export default function CustomerPage() {
         { id: newId(), item: item.itemname, price: Number(item.price), addOns: [] },
       ]);
       showToast(`${item.itemname} added to cart`);
+      announce(`${item.itemname} added to cart for $${Number(item.price).toFixed(2)}`);
     } else {
       setCustomizing(item);
       setSelectedAddOns([]);
+      announce(`${item.itemname} customization window opened. Select your add-ons.`);
     }
   }
 
   function openRecommendation() {
     const name = getWeatherRecommendation();
     const item = menu.find((m) => m.itemname === name);
-    if (item) handleItemClick(item);
+    if (item) {
+      announce(`Weather recommendation: ${name}. Adding to cart.`);
+      handleItemClick(item);
+    }
   }
 
-  function toggleExclusive(name: string, groupNames: string[]) {
+  function toggleExclusive(name: string, groupNames: string[], label: string) {
     setSelectedAddOns((prev) => {
       const withoutGroup = prev.filter((a) => !groupNames.includes(a));
-      return prev.includes(name) ? withoutGroup : [...withoutGroup, name];
+      const newSelection = prev.includes(name) ? withoutGroup : [...withoutGroup, name];
+      const selectedValue = newSelection.find((s) => groupNames.includes(s)) || "regular";
+      announce(`${label} set to ${selectedValue}`);
+      return newSelection;
     });
   }
 
   function toggleAddOn(name: string) {
-    setSelectedAddOns((prev) =>
-      prev.includes(name) ? prev.filter((a) => a !== name) : [...prev, name]
-    );
+    setSelectedAddOns((prev) => {
+      const isSelected = prev.includes(name);
+      const newSelection = isSelected ? prev.filter((a) => a !== name) : [...prev, name];
+      const addon = addOns.find((ao) => ao.itemname === name);
+      const price = addon ? Number(addon.price).toFixed(2) : "0.00";
+      announce(isSelected ? `${name} removed` : `${name} added for $${price}`);
+      return newSelection;
+    });
   }
 
   function confirmCustomization() {
@@ -144,26 +167,41 @@ export default function CustomerPage() {
       const a = addOns.find((ao) => ao.itemname === name);
       return sum + (a ? Number(a.price) : 0);
     }, 0);
+    const sizeTotal = SIZE_OPTIONS.reduce((sum, option) => {
+      if (selectedAddOns.includes(option.value)) {
+        if (option.value === "Small") {
+          return sum - option.price;
+        }
+        return sum + option.price;
+      }
+      return sum;
+    }, 0);
     const base = {
       item: customizing.itemname,
-      price: Number(customizing.price) + addOnTotal,
+      price: Number(customizing.price) + addOnTotal + sizeTotal,
       addOns: selectedAddOns,
     };
 
     if (editingId !== null) {
       setCart((prev) => prev.map((c) => (c.id === editingId ? { ...c, ...base } : c)));
       showToast(`${customizing.itemname} updated`);
+      announce(`${customizing.itemname} updated with ${selectedAddOns.length} add-ons for $${base.price.toFixed(2)}`);
     } else {
       setCart((prev) => [...prev, { id: newId(), ...base }]);
       showToast(`${customizing.itemname} added to cart`);
+      announce(`${customizing.itemname} added to cart with ${selectedAddOns.length} add-ons for $${base.price.toFixed(2)}`);
     }
-    closeCustomizing();
+    closeCustomizing(true);
   }
 
-  function closeCustomizing() {
+  function closeCustomizing(isFromConfirm: boolean = false) {
     setCustomizing(null);
     setEditingId(null);
     setSelectedAddOns([]);
+    // Only announce close if user manually closed without confirming
+    if (!isFromConfirm) {
+      announce("Customization window closed");
+    }
     // Return focus to the item that was clicked
     setTimeout(() => {
       lastClickedItemRef.current?.focus();
@@ -216,6 +254,7 @@ export default function CustomerPage() {
       });
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
 
+      announce(`Order placed successfully with ${cart.length} items for $${total.toFixed(2)}`);
       setCart([]);
       setCartOpen(false);
       await fetchWeather();
@@ -224,6 +263,7 @@ export default function CustomerPage() {
     } catch (err) {
       console.error("Failed to place order:", err);
       showToast("Could not place order. Please try again.");
+      announce("Error: Could not place order. Please try again.");
     }
   }
 
@@ -232,8 +272,9 @@ export default function CustomerPage() {
 
       {/* Header stays mounted at all times so GoogleTranslate is never torn down */}
       <div className="relative flex items-center justify-center py-4 border-b border-border bg-card">
-        <h1 className="text-3xl font-display tracking-tight"><span>Taro Root</span></h1>
-        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+        <h1 className="text-3xl font-display tracking-tight"><span translate="no">Taro Root</span></h1>
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
+          <JavaScriptScreenReader announcements={announcements} />
           <GoogleTranslate />
         </div>
       </div>
@@ -267,13 +308,14 @@ export default function CustomerPage() {
                 key={cat}
                 onClick={() => {
                   setActiveCategory(cat);
+                  announce(`Switched to ${cat} category. ${menu.filter((m) => m.category === cat).length} items available.`);
                   focusFirstMenuItem();
                 }}
                 aria-label={`View ${cat} category`}
                 aria-pressed={activeCategory === cat}
-                className={`px-3 py-3 rounded-lg text-base font-medium text-center whitespace-nowrap transition ${activeCategory === cat
-                    ? "bg-accent text-white"
-                    : "border border-border text-muted hover:border-accent"
+                className={`px-3 py-3 rounded-lg text-base font-medium text-center leading-tight transition ${activeCategory === cat
+                  ? "bg-accent text-white"
+                  : "border border-border text-muted hover:border-accent"
                   }`}
               >
                 {/* Static category names don't need spans since they never change,
@@ -287,13 +329,13 @@ export default function CustomerPage() {
               {weather ? (
                 <>
                   <div className="text-foreground font-bold text-xl leading-none">
-                    <span>{weather.temperature_2m.toFixed(0)}°F</span>
+                    <span translate="no">{weather.temperature_2m.toFixed(0)}°F</span>
                   </div>
                   <div><span>{weather.cloud_cover > 50 ? "Cloudy" : "Clear"}</span></div>
-                  <div><span>Wind: {weather.wind_speed_10m} mph</span></div>
+                  <div><span>Wind: <span translate="no">{weather.wind_speed_10m} mph</span></span></div>
                   {weather.precipitation > 0 && (
                     <div className="text-accent font-medium">
-                      <span>Rain: {weather.precipitation}"</span>
+                      <span>Rain: <span translate="no">{weather.precipitation}&quot;</span></span>
                     </div>
                   )}
 
@@ -333,7 +375,7 @@ export default function CustomerPage() {
                       <span>{item.itemname}</span>
                     </div>
                     <div className="text-base text-muted shrink-0">
-                      <span>${Number(item.price).toFixed(2)}</span>
+                      <span translate="no">${Number(item.price).toFixed(2)}</span>
                     </div>
                   </div>
                   {item.description && (
@@ -350,7 +392,10 @@ export default function CustomerPage() {
 
       {/* Floating cart button */}
       <button
-        onClick={() => setCartOpen(true)}
+        onClick={() => {
+          setCartOpen(true);
+          announce(`Cart opened. ${cart.length} item${cart.length !== 1 ? "s" : ""} in cart. Total: $${total.toFixed(2)}`);
+        }}
         aria-label={`Open cart with ${cart.length} item${cart.length !== 1 ? "s" : ""}`}
         className="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-white font-medium shadow-md hover:opacity-90 transition"
       >
@@ -371,7 +416,7 @@ export default function CustomerPage() {
         </svg>
         <span>Cart</span>
         {cart.length > 0 && (
-          <span className="bg-white text-accent text-xs rounded-full px-2 py-0.5 font-medium">
+          <span translate="no" className="bg-white text-accent text-xs rounded-full px-2 py-0.5 font-medium">
             {cart.length}
           </span>
         )}
@@ -387,7 +432,10 @@ export default function CustomerPage() {
           <div className="flex items-center gap-3">
             {cart.length > 0 && (
               <button
-                onClick={() => setCart([])}
+                onClick={() => {
+                  setCart([]);
+                  announce(`Cart cleared. All ${cart.length} items removed.`);
+                }}
                 aria-label="Remove all items from cart"
                 className="text-sm text-muted text-red-500 transition hover:underline"
               >
@@ -395,7 +443,10 @@ export default function CustomerPage() {
               </button>
             )}
             <button
-              onClick={() => setCartOpen(false)}
+              onClick={() => {
+                setCartOpen(false);
+                announce("Cart closed");
+              }}
               className="text-muted hover:text-foreground transition text-xl"
               aria-label="Close cart"
             >
@@ -412,7 +463,7 @@ export default function CustomerPage() {
               <div key={item.id} className="border border-border rounded-lg p-3">
                 <div className="flex justify-between items-start gap-2">
                   <div className="font-medium"><span>{item.item}</span></div>
-                  <div className="text-muted shrink-0"><span>${item.price.toFixed(2)}</span></div>
+                  <div className="text-muted shrink-0"><span translate="no">${item.price.toFixed(2)}</span></div>
                 </div>
                 {item.addOns.length > 0 && (
                   <div className="text-xs text-muted mt-1">
@@ -422,7 +473,10 @@ export default function CustomerPage() {
                 <div className="flex gap-2 mt-2">
                   {isCustomizable(item.item) && (
                     <button
-                      onClick={() => startEditing(item)}
+                      onClick={() => {
+                        startEditing(item);
+                        announce(`${item.item} customization window opened for editing`);
+                      }}
                       aria-label={`Customize ${item.item}`}
                       className="text-xs text-accent hover:underline"
                     >
@@ -433,6 +487,7 @@ export default function CustomerPage() {
                     onClick={() => {
                       setCart((prev) => prev.filter((c) => c.id !== item.id));
                       showToast(`${item.item} removed from cart`);
+                      announce(`${item.item} removed from cart`);
                     }}
                     className="text-xs text-muted hover:underline text-red-500 ml-auto"
                     aria-label={`Remove ${item.item} from cart`}
@@ -448,7 +503,7 @@ export default function CustomerPage() {
         <div className="border-t border-border pt-4 mt-4">
           <div className="flex justify-between font-bold mb-3">
             <span>Total</span>
-            <span>${total.toFixed(2)}</span>
+            <span translate="no">${total.toFixed(2)}</span>
           </div>
           <button
             onClick={placeOrder}
@@ -477,7 +532,7 @@ export default function CustomerPage() {
       {customizing && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
-          onClick={closeCustomizing}
+          onClick={() => closeCustomizing(false)}
         >
           <div
             ref={customizingRef}
@@ -492,7 +547,7 @@ export default function CustomerPage() {
               <p className="text-sm text-muted mb-2"><span>{customizing.description}</span></p>
             )}
             <p className="text-base text-muted mb-5">
-              <span>${Number(customizing.price).toFixed(2)}</span>
+              <span translate="no">${Number(customizing.price).toFixed(2)}</span>
             </p>
 
             {/* Temperature */}
@@ -506,8 +561,8 @@ export default function CustomerPage() {
                     aria-label="Hot temperature"
                     aria-pressed={selectedAddOns.includes("Hot")}
                     className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${selectedAddOns.includes("Hot")
-                        ? "border-accent bg-accent-light text-accent"
-                        : "border-border text-muted hover:border-accent"
+                      ? "border-accent bg-accent-light text-accent"
+                      : "border-border text-muted hover:border-accent"
                       }`}
                   >
                     <span>Hot</span>
@@ -522,18 +577,63 @@ export default function CustomerPage() {
               {SUGAR_OPTIONS.map((s) => (
                 <button
                   key={s}
-                  onClick={() => toggleExclusive(s, SUGAR_OPTIONS)}
+                  onClick={() => toggleExclusive(s, SUGAR_OPTIONS, "Sugar level")}
                   aria-label={`${s} sugar`}
                   aria-pressed={selectedAddOns.includes(s)}
                   className={`rounded-lg border py-2 text-sm transition ${selectedAddOns.includes(s)
-                      ? "border-accent bg-accent-light"
-                      : "border-border hover:border-accent"
+                    ? "border-accent bg-accent-light"
+                    : "border-border hover:border-accent"
                     }`}
                 >
                   <span>{s}</span>
                 </button>
               ))}
             </div>
+
+            {isDrink && (
+              <>
+                <p className="text-sm font-medium mb-2"><span>Size</span></p>
+                <div className="grid grid-cols-2 gap-2 mb-5" role="group" aria-label="Size options">
+                  {SIZE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => toggleExclusive(option.value, SIZE_OPTIONS.map((o) => o.value), "Size")}
+                      aria-label={`${option.label} size, add $${option.price.toFixed(2)}`}
+                      aria-pressed={selectedAddOns.includes(option.value)}
+                      className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${selectedAddOns.includes(option.value)
+                        ? "border-accent bg-accent-light"
+                        : "border-border hover:border-accent"
+                        }`}
+                    >
+                      <span>{option.label}</span>
+                      <span className="text-muted">
+                        <span translate="no">
+                          {option.label === "Small" ? "-" : "+"}${option.price.toFixed(2)}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-sm font-medium mb-2"><span>Ice Level</span></p>
+                <div className="grid grid-cols-3 gap-2 mb-5" role="group" aria-label="Ice level options">
+                  {ICE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => toggleExclusive(option.value, ICE_OPTIONS.map((o) => o.value), "Ice level")}
+                      aria-label={`${option.label} ice`}
+                      aria-pressed={selectedAddOns.includes(option.value)}
+                      className={`rounded-lg border py-2 text-sm transition ${selectedAddOns.includes(option.value)
+                        ? "border-accent bg-accent-light"
+                        : "border-border hover:border-accent"
+                        }`}
+                    >
+                      <span>{option.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             <p className="text-sm font-medium mb-2"><span>Toppings</span></p>
             <div className="space-y-2 mb-6" role="group" aria-label="Topping options">
@@ -544,26 +644,29 @@ export default function CustomerPage() {
                   aria-label={`${ao.itemname}, add $${Number(ao.price).toFixed(2)}`}
                   aria-pressed={selectedAddOns.includes(ao.itemname)}
                   className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${selectedAddOns.includes(ao.itemname)
-                      ? "border-accent bg-accent-light"
-                      : "border-border hover:border-accent"
+                    ? "border-accent bg-accent-light"
+                    : "border-border hover:border-accent"
                     }`}
                 >
                   <span>{ao.itemname}</span>
-                  <span className="text-muted"><span>+${Number(ao.price).toFixed(2)}</span></span>
+                  <span className="text-muted"><span translate="no">+${Number(ao.price).toFixed(2)}</span></span>
                 </button>
               ))}
             </div>
 
             <div className="flex gap-3">
               <button
-                onClick={closeCustomizing}
+                onClick={() => closeCustomizing(false)}
                 aria-label="Cancel customization"
                 className="flex-1 rounded-lg border border-border py-2 font-medium hover:bg-background transition"
               >
                 <span>Cancel</span>
               </button>
               <button
-                onClick={confirmCustomization}
+                onClick={() => {
+                  announce("Item added to cart");
+                  confirmCustomization();
+                }}
                 aria-label={editingId !== null ? "Save changes to item" : "Add customized item to order"}
                 className="flex-1 rounded-lg bg-accent py-2 text-white font-medium hover:opacity-90 transition"
               >
@@ -576,7 +679,7 @@ export default function CustomerPage() {
 
       {/* chatbot window */}
       <div className="fixed bottom-4 left-45">
-        <ChatbotWindow />
+        <ChatbotWindow announce={announce} />
       </div>
     </main>
   );
@@ -584,7 +687,7 @@ export default function CustomerPage() {
 
 type ToastState = { visible: boolean; message: string };
 
-function ChatbotWindow() {
+function ChatbotWindow({ announce }: { announce?: (message: string) => void }) {
   const [conversation, setConversation] = useState<ChatMessage[]>([
     { id: "init", message: "Hello! I'm Tara. What can I help you with today?" },
   ]);
@@ -592,6 +695,7 @@ function ChatbotWindow() {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [toast, setToast] = useState<ToastState>({ visible: false, message: "" });
+  const [keyboardOpen, setKeyboardOpen] = useState<boolean>(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -601,6 +705,11 @@ function ChatbotWindow() {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [conversation, isOpen]);
+
+  // Close the virtual keyboard whenever the chat panel collapses.
+  useEffect(() => {
+    if (!isOpen) setKeyboardOpen(false);
+  }, [isOpen]);
 
   function showToast(msg: string) {
     setToast({ visible: true, message: msg });
@@ -615,8 +724,16 @@ function ChatbotWindow() {
     const req: ChatMessage = { id: lastId, message: trimmed };
 
     setMessage("");
+    // Reset textarea height after clearing.
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
     setIsLoading(true);
     setConversation((prev) => [...prev, req]);
+
+    if (announce) {
+      announce(`Message sent: ${trimmed}`);
+    }
 
     try {
       const result = await fetch("/api/ai", {
@@ -629,26 +746,47 @@ function ChatbotWindow() {
         setMessage(trimmed);
         setConversation((prev) => prev.slice(0, -1));
         showToast("Something went wrong. Please try again.");
+        if (announce) {
+          announce("Error: Failed to send message");
+        }
         return;
       }
 
       const body: ChatMessage = await result.json();
       setConversation((prev) => [...prev, body]);
+      if (announce) {
+        announce(`Tara: ${body.message}`);
+      }
     } catch {
       setMessage(trimmed);
       setConversation((prev) => prev.slice(0, -1));
       showToast("Network error. Please check your connection.");
+      if (announce) {
+        announce("Error: Network connection failed");
+      }
     } finally {
       setIsLoading(false);
     }
   }
 
-  function handleKeyDown(e: any) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendChatbotMessage(message);
     }
   }
+
+  // Keep React state in sync with changes the VirtualKeyboard makes directly
+  // to the textarea's DOM value, and resize the textarea to fit new content.
+  function handleTextareaInput(e: React.FormEvent<HTMLTextAreaElement>) {
+    const el = e.currentTarget;
+    setMessage(el.value);
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }
+
+  const kbTheme: KeyboardTheme = "light";
+  const kbLayout: KeyboardLayout = "qwerty";
 
   return (
     <div
@@ -670,7 +808,7 @@ function ChatbotWindow() {
         role="alert"
         aria-live="assertive"
       >
-        {toast.message}
+        <span>{toast.message}</span>
       </div>
 
       {/* Header */}
@@ -678,11 +816,16 @@ function ChatbotWindow() {
         className="pl-4 pt-3 pb-3 pr-3 font-semibold text-sm flex justify-between items-center"
         style={{ background: "var(--accent)", color: "#fff" }}
       >
-        <span className="pr-8">Tara</span>
+        <span className="pr-8" translate="no">Tara</span>
         <button
-          onClick={() => setIsOpen((o) => !o)}
+          onClick={() => {
+            setIsOpen((o) => !o);
+            if (announce) {
+              announce(isOpen ? "Chat window collapsed" : "Chat window expanded");
+            }
+          }}
           className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors duration-150"
-          style={{ background: "rgba(255,255,255,0.15)" }}
+          style={{ background: "rgba(107,78,139,1)" }}
           aria-label={isOpen ? "Collapse chat" : "Expand chat"}
         >
           <svg
@@ -695,7 +838,13 @@ function ChatbotWindow() {
               transform: isOpen ? "rotate(0deg)" : "rotate(180deg)",
             }}
           >
-            <path d="M2 5l5 5 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M2 5l5 5 5-5"
+              stroke="#fff"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
       </div>
@@ -730,7 +879,7 @@ function ChatbotWindow() {
                     borderBottomLeftRadius: !isUser ? "4px" : undefined,
                   }}
                 >
-                  {cm.message}
+                  <span>{cm.message}</span>
                 </div>
               );
             })}
@@ -744,10 +893,22 @@ function ChatbotWindow() {
                   borderBottomLeftRadius: "4px",
                 }}
               >
-                <span className="flex gap-1 items-center" style={{ color: "var(--muted)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: "var(--accent)" }} />
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: "var(--accent)" }} />
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: "var(--accent)" }} />
+                <span
+                  className="flex gap-1 items-center"
+                  style={{ color: "var(--muted)" }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:0ms]"
+                    style={{ background: "var(--accent)" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:150ms]"
+                    style={{ background: "var(--accent)" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:300ms]"
+                    style={{ background: "var(--accent)" }}
+                  />
                 </span>
               </div>
             )}
@@ -763,7 +924,11 @@ function ChatbotWindow() {
             <textarea
               ref={textareaRef}
               className="flex-1 resize-none appearance-none bg-transparent border-none focus:ring-0 focus:outline-none text-sm leading-relaxed"
-              style={{ color: "var(--foreground)", maxHeight: "7rem", minHeight: "1.5rem" }}
+              style={{
+                color: "var(--foreground)",
+                maxHeight: "7rem",
+                minHeight: "1.5rem",
+              }}
               placeholder="Ask anything…"
               rows={1}
               value={message}
@@ -772,28 +937,94 @@ function ChatbotWindow() {
                 e.target.style.height = "auto";
                 e.target.style.height = e.target.scrollHeight + "px";
               }}
+              // VirtualKeyboard dispatches native "input" events, so we also
+              // listen via onInput to stay in sync without duplicating onChange.
+              onInput={handleTextareaInput}
               onKeyDown={handleKeyDown}
+              onFocus={() => setKeyboardOpen(true)}
             />
+
+            {/* Virtual keyboard toggle */}
             <button
-              onClick={() => sendChatbotMessage(message)}
+              onClick={() => {
+                setKeyboardOpen((o) => !o);
+                // Return focus to the textarea so the keyboard has a target.
+                textareaRef.current?.focus();
+              }}
+              className="mb-0.5 w-8 h-8 shrink-0 flex items-center justify-center rounded-full transition-all duration-150"
+              style={{
+                background: keyboardOpen ? "var(--accent)" : "var(--border)",
+                cursor: "pointer",
+              }}
+              aria-label={keyboardOpen ? "Hide virtual keyboard" : "Show virtual keyboard"}
+              aria-pressed={keyboardOpen}
+            >
+              {/* Keyboard icon */}
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="none">
+                <rect x="0.5" y="0.5" width="14" height="10" rx="1.5" stroke="#fff" strokeWidth="1.2" />
+                <rect x="2" y="2.5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="5" y="2.5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="8" y="2.5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="11" y="2.5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="2" y="5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="5" y="5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="8" y="5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="11" y="5" width="2" height="1.5" rx="0.4" fill="#fff" />
+                <rect x="3.5" y="7.5" width="8" height="1.5" rx="0.4" fill="#fff" />
+              </svg>
+            </button>
+
+            {/* Send button */}
+            <button
+              onClick={() => {
+                sendChatbotMessage(message);
+              }}
               disabled={!message.trim() || isLoading}
               className="mb-0.5 w-8 h-8 shrink-0 flex items-center justify-center rounded-full transition-all duration-150"
               style={{
                 background:
-                  message.trim() && !isLoading
-                    ? "var(--accent)"
-                    : "var(--border)",
+                  message.trim() && !isLoading ? "var(--accent)" : "var(--border)",
                 cursor: message.trim() && !isLoading ? "pointer" : "not-allowed",
               }}
               aria-label="Send message"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 12V2M2 7l5-5 5 5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M7 12V2M2 7l5-5 5 5"
+                  stroke="#fff"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Virtual keyboard — rendered in a portal via fixed positioning */}
+      {keyboardOpen && (<VirtualKeyboard
+        targetRef={textareaRef}
+        isOpen={keyboardOpen}
+        onClose={() => setKeyboardOpen(false)}
+        layout={kbLayout}
+        theme={kbTheme}
+        placement="right"
+        size="normal"
+        draggable
+        showClose
+        onKeyPress={(key) => {
+          // Send on Enter (VirtualKeyboard handles insertion; we just need
+          // to trigger send for the non-textarea Enter behaviour).
+          if (key === "Enter") {
+            // Give the DOM event a tick to flush before reading message state.
+            setTimeout(() => {
+              const current = textareaRef.current?.value ?? "";
+              if (current.trim()) sendChatbotMessage(current);
+            }, 0);
+          }
+        }}
+      />)}
     </div>
   );
 }

@@ -34,6 +34,7 @@ interface StatsPayload {
     salesHistory: SalesPoint[];
     inventoryUsageHistory: UsagePoint[];
     zGeneratedToday: boolean;
+    zGeneratedAt: string | null; // ISO timestamp of today's Z report, or null
     menuOptions: Array<{ itemid: number; itemname: string }>;
     inventoryOptions: Array<{ ingredientid: number; ingredientname: string }>;
     effectiveStartDate?: string;
@@ -258,7 +259,6 @@ export default function ManagerStatsDashboard() {
         );
     }
 
-    //call report generation functions
     async function generateReport(type: "x" | "z") {
         setReportLoading(type);
         setError(null);
@@ -396,7 +396,7 @@ export default function ManagerStatsDashboard() {
 
                     <section className="rounded-xl border border-border bg-card p-4">
                         <h3 className="font-bold mb-3">Reports</h3>
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex flex-wrap gap-3 items-center">
                             <button
                                 onClick={() => void generateReport("x")}
                                 disabled={reportLoading !== null}
@@ -406,13 +406,15 @@ export default function ManagerStatsDashboard() {
                             </button>
                             <button
                                 onClick={() => void generateReport("z")}
-                                disabled={reportLoading !== null || stats.zGeneratedToday}
+                                disabled={reportLoading !== null}
                                 className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                             >
-                                {reportLoading === "z" ? "Generating Z-Report..." : "Generate Z-Report"}
+                                {stats.zGeneratedToday ? "View Z-Report" : "Generate Z-Report"}
                             </button>
-                            {stats.zGeneratedToday && (
-                                <span className="text-sm text-muted self-center">Z-report already generated today.</span>
+                            {stats.zGeneratedToday && stats.zGeneratedAt && (
+                                <span className="text-sm text-muted self-center">
+                                    Z-Report generated at {new Date(stats.zGeneratedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </span>
                             )}
                         </div>
                     </section>

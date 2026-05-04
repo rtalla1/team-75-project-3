@@ -39,3 +39,13 @@ export async function addEmployee(
 export async function deleteEmployee(employeeId: number): Promise<void> {
     await pool.query("DELETE FROM employees WHERE employeeid = $1", [employeeId]);
 }
+
+export async function updateEmployee(id: number, name: string, access: string, age: number, phone: string, email: string): Promise<EmployeeRecord> {
+    const { rows } = await pool.query(
+        `UPDATE employees SET name=$1, access=$2, age=$3, phone=$4, email=$5
+         WHERE employeeid=$6
+         RETURNING employeeid, name, access, age, phone, email`,
+        [name, access, age, phone, email, id]
+    );
+    return rows[0];
+}

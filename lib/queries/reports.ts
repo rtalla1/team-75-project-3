@@ -86,7 +86,7 @@ function fillHourly(rows: Array<{ hour: number; orders: number; revenue: number 
 // Returns daily order counts and revenue for the past `days` days, including days with no orders.
 export async function getSalesHistory(days: number = 14): Promise<DailyMetric[]> {
     const { rows } = await pool.query(
-        `SELECT DATE("time")::text AS day,
+        `SELECT DATE("time" AT TIME ZONE 'America/Chicago')::text AS day,
             COUNT(*)::int AS orders,
             COALESCE(SUM(price), 0)::float8 AS revenue
      FROM orderhistory
@@ -177,7 +177,7 @@ export async function getSalesHistoryByDateRange(
 // Returns daily total ingredient usage (summed across all orders) for the past `days` days.
 export async function getInventoryUsageHistory(days: number = 14): Promise<DailyMetric[]> {
     const { rows } = await pool.query(
-        `SELECT DATE(oh."time")::text AS day,
+        `SELECT DATE("time" AT TIME ZONE 'America/Chicago')::text AS day,
             COALESCE(SUM(mim.quantity), 0)::float8 AS usage
      FROM orderhistory oh
      CROSS JOIN LATERAL jsonb_array_elements(COALESCE(oh.orderdetails->'items', '[]'::jsonb)) oi
@@ -270,13 +270,13 @@ export async function getInventoryUsageHistoryByDateRange(
 // Returns a full 24-element array with zeros for inactive hours.
 async function getHourlyMetrics(fromIso: string, toIso: string): Promise<HourlyMetric[]> {
     const { rows } = await pool.query(
-        `SELECT EXTRACT(HOUR FROM "time")::int AS hour,
+        `SELECT EXTRACT(HOUR FROM "time" AT TIME ZONE 'America/Chicago')::int AS hour,
             COUNT(*)::int AS orders,
             COALESCE(SUM(price), 0)::float8 AS revenue
      FROM orderhistory
      WHERE "time" >= $1::timestamptz
        AND "time" <= $2::timestamptz
-     GROUP BY EXTRACT(HOUR FROM "time")
+     GROUP BY EXTRACT(HOUR FROM "time" AT TIME ZONE 'America/Chicago')
      ORDER BY hour`,
         [fromIso, toIso]
     );
@@ -292,27 +292,46 @@ export async function hasZReportToday(): Promise<boolean> {
     return rows.length > 0;
 }
 
+export async function zGeneratedTime(): Promise<string | null> {
+    const { rows } = await pool.query(
+        `SELECT generated_at FROM zreport_log WHERE report_date = CURRENT_DATE LIMIT 1`
+    );
+    return rows[0]?.generated_at ? new Date(rows[0].generated_at).toISOString() : null;
+}
+
 // Generates an X report: a non-destructive sales snapshot from the last Z report (or start of day) until now.
 // Does not modify any database state.
 export async function generateXReport(): Promise<ReportDetails> {
-    //query the database
-    const { rows: resetRows } = await pool.query(
-        `SELECT COALESCE(MAX(generated_at), CURRENT_DATE::timestamptz) AS reset_at
-     FROM zreport_log
-     WHERE report_date = CURRENT_DATE`
-    );
+    const now = new Date();
+    const toIso = now.toISOString();
 
-    const from = new Date(resetRows[0].reset_at).toISOString();
-    const to = new Date().toISOString();
-    const hourly = await getHourlyMetrics(from, to);
+    const { rows: dayStart } = await pool.query(
+        `SELECT DATE_TRUNC('day', NOW() AT TIME ZONE 'America/Chicago') AT TIME ZONE 'America/Chicago' AS start_of_day`
+    );
+    const fromIso = new Date(dayStart[0].start_of_day).toISOString();
+
+    const zToday = await hasZReportToday();
+    if (zToday) {
+        return {
+            type: "x",
+            generatedAt: toIso,
+            from: fromIso,
+            to: toIso,
+            totalOrders: 0,
+            totalRevenue: 0,
+            hourly: Array.from({ length: 24 }, (_, hour) => ({ hour, orders: 0, revenue: 0 })),
+        };
+    }
+
+    const hourly = await getHourlyMetrics(fromIso, toIso);
     const totalOrders = hourly.reduce((sum, h) => sum + h.orders, 0);
     const totalRevenue = hourly.reduce((sum, h) => sum + h.revenue, 0);
 
     return {
         type: "x",
-        generatedAt: to,
-        from,
-        to,
+        generatedAt: toIso,
+        from: fromIso,
+        to: toIso,
         totalOrders,
         totalRevenue,
         hourly,
@@ -320,49 +339,69 @@ export async function generateXReport(): Promise<ReportDetails> {
 }
 
 // Generates a Z report: closes out the current sales period and records it in zreport_log.
-// Throws an error if a Z report has already been generated today.
+// If a z report has been generated that day only checks times up until that report was generated
 // Uses a transaction to ensure the log entry and the report data stay consistent.
 export async function generateZReport(): Promise<ReportDetails> {
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
-        //query the database
+
+        const { rows: dayStart } = await client.query(
+            `SELECT DATE_TRUNC('day', NOW() AT TIME ZONE 'America/Chicago') AT TIME ZONE 'America/Chicago' AS start_of_day`
+        );
+        const fromIso = new Date(dayStart[0].start_of_day).toISOString();
+
         const { rows: existing } = await client.query(
-            "SELECT id FROM zreport_log WHERE report_date = CURRENT_DATE LIMIT 1"
+            `SELECT id, generated_at, total_orders, total_revenue 
+             FROM zreport_log 
+             WHERE report_date = CURRENT_DATE 
+             LIMIT 1`
         );
 
         if (existing.length > 0) {
-            throw new Error("Z-report has already been generated for today.");
+            await client.query("COMMIT");
+            const generatedAt = new Date(existing[0].generated_at).toISOString();
+            const hourly = await getHourlyMetrics(fromIso, generatedAt);
+
+            return {
+                type: "z",
+                generatedAt,
+                from: fromIso,
+                to: generatedAt,
+                totalOrders: Number(existing[0].total_orders),
+                totalRevenue: Number(existing[0].total_revenue),
+                hourly,
+            };
         }
 
         const { rows: totalsRows } = await client.query(
             `SELECT COUNT(*)::int AS total_orders,
-              COALESCE(SUM(price), 0)::float8 AS total_revenue
-       FROM orderhistory
-       WHERE "time" >= CURRENT_DATE::timestamptz
-         AND "time" <= NOW()`
+                    COALESCE(SUM(price), 0)::float8 AS total_revenue
+             FROM orderhistory
+             WHERE "time" >= DATE_TRUNC('day', NOW() AT TIME ZONE 'America/Chicago') AT TIME ZONE 'America/Chicago'
+               AND "time" <= NOW()`
         );
+
 
         const totalOrders = Number(totalsRows[0].total_orders);
         const totalRevenue = Number(totalsRows[0].total_revenue);
 
         const { rows: inserted } = await client.query(
             `INSERT INTO zreport_log (report_date, generated_at, total_orders, total_revenue)
-       VALUES (CURRENT_DATE, NOW(), $1, $2)
-       RETURNING generated_at`,
+             VALUES (CURRENT_DATE, NOW(), $1, $2)
+             RETURNING generated_at`,
             [totalOrders, totalRevenue]
         );
 
         await client.query("COMMIT");
 
-        const from = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
         const generatedAt = new Date(inserted[0].generated_at).toISOString();
-        const hourly = await getHourlyMetrics(from, generatedAt);
+        const hourly = await getHourlyMetrics(fromIso, generatedAt);
 
         return {
             type: "z",
             generatedAt,
-            from,
+            from: fromIso,
             to: generatedAt,
             totalOrders,
             totalRevenue,

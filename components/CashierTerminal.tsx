@@ -17,7 +17,16 @@ interface CartItem {
 }
 
 const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
-const SUGAR_OPTIONS = ["120%", "100%", "75%", "50%", "25%", "0%"];
+const SUGAR_OPTIONS = ["120%", "75%", "50%", "25%", "0%"];
+const SIZE_OPTIONS = [
+  { label: "Small", value: "Small", price: 0.5 },
+  { label: "Large", value: "Large", price: 0.5 },
+];
+const ICE_OPTIONS = [
+  { label: "No ice", value: "No ice" },
+  { label: "Less ice", value: "Less ice" },
+  { label: "Extra ice", value: "Extra ice" },
+];
 
 export default function CashierTerminal() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
@@ -46,6 +55,9 @@ export default function CashierTerminal() {
 
   const filtered = menu.filter((i) => i.category === activeCategory);
   const total = cart.reduce((s, i) => s + i.price, 0);
+  const isDrink =
+    customizing?.category === "Classic Drink" ||
+    customizing?.category === "Fruit Drink";
 
   function handleItemClick(item: MenuItem) {
     if (item.category === "Food") {
@@ -71,15 +83,24 @@ export default function CashierTerminal() {
 
   function confirmCustomization() {
     if (!customizing) return;
+
     const addOnTotal = selectedAddOns.reduce((sum, name) => {
       const a = addOns.find((ao) => ao.itemname === name);
       return sum + (a ? Number(a.price) : 0);
     }, 0);
+
+    const sizeTotal = SIZE_OPTIONS.reduce((sum, option) => {
+      if (selectedAddOns.includes(option.value)) {
+        return sum + (option.value === "Small" ? -option.price : option.price);
+      }
+      return sum;
+    }, 0);
+
     setCart([
       ...cart,
       {
         item: customizing.itemname,
-        price: Number(customizing.price) + addOnTotal,
+        price: Number(customizing.price) + addOnTotal + sizeTotal,
         addOns: selectedAddOns,
       },
     ]);
@@ -206,23 +227,22 @@ export default function CashierTerminal() {
             <p className="text-sm text-muted mb-1">{customizing.description}</p>
             <p className="text-sm text-muted mb-5">${Number(customizing.price).toFixed(2)}</p>
 
-            {/* Temperature */}
+            {/* Temperature — Classic Drink only */}
             {customizing.category === "Classic Drink" && (
               <>
-              <p className="text-sm font-medium mb-2">Temperature</p>
-              <div className="flex gap-2 mb-5">
-                <button
-                  key="Hot"
-                  onClick={() => toggleAddOn("Hot")}
-                  className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${
-                    selectedAddOns.includes("Hot")
-                      ? "border-accent bg-accent-light text-accent"
-                      : "border-border text-muted hover:border-accent"
-                  }`}
-                >
-                  {"Hot"}
-                </button>
-              </div>
+                <p className="text-sm font-medium mb-2">Temperature</p>
+                <div className="flex gap-2 mb-5">
+                  <button
+                    onClick={() => toggleAddOn("Hot")}
+                    className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition ${
+                      selectedAddOns.includes("Hot")
+                        ? "border-accent bg-accent-light text-accent"
+                        : "border-border text-muted hover:border-accent"
+                    }`}
+                  >
+                    Hot
+                  </button>
+                </div>
               </>
             )}
 
@@ -239,29 +259,80 @@ export default function CashierTerminal() {
                       : "border-border text-muted hover:border-accent"
                   }`}
                 >
-                  {opt.replace("Sugar ", "")}
+                  {opt}
                 </button>
               ))}
             </div>
 
+            {/* Size & Ice — drinks only */}
+            {isDrink && (
+              <>
+                <p className="text-sm font-medium mb-2">Size</p>
+                <div className="grid grid-cols-2 gap-2 mb-5">
+                  {SIZE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() =>
+                        toggleExclusive(
+                          option.value,
+                          SIZE_OPTIONS.map((o) => o.value)
+                        )
+                      }
+                      className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${
+                        selectedAddOns.includes(option.value)
+                          ? "border-accent bg-accent-light"
+                          : "border-border hover:border-accent"
+                      }`}
+                    >
+                      <span>{option.label}</span>
+                      <span className="text-muted">
+                        {option.value === "Small" ? "-" : "+"}${option.price.toFixed(2)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-sm font-medium mb-2">Ice level</p>
+                <div className="grid grid-cols-3 gap-2 mb-5">
+                  {ICE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() =>
+                        toggleExclusive(
+                          option.value,
+                          ICE_OPTIONS.map((o) => o.value)
+                        )
+                      }
+                      className={`rounded-lg border py-2 text-sm transition ${
+                        selectedAddOns.includes(option.value)
+                          ? "border-accent bg-accent-light"
+                          : "border-border hover:border-accent"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
             {/* Toppings */}
             <p className="text-sm font-medium mb-2">Add toppings</p>
             <div className="space-y-2 mb-6">
-              {addOns
-                .map((ao) => (
-                  <button
-                    key={ao.itemid}
-                    onClick={() => toggleAddOn(ao.itemname)}
-                    className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${
-                      selectedAddOns.includes(ao.itemname)
-                        ? "border-accent bg-accent-light"
-                        : "border-border hover:border-accent"
-                    }`}
-                  >
-                    <span>{ao.itemname}</span>
-                    <span className="text-muted">+${Number(ao.price).toFixed(2)}</span>
-                  </button>
-                ))}
+              {addOns.map((ao) => (
+                <button
+                  key={ao.itemid}
+                  onClick={() => toggleAddOn(ao.itemname)}
+                  className={`w-full flex justify-between items-center rounded-lg border p-3 text-sm transition ${
+                    selectedAddOns.includes(ao.itemname)
+                      ? "border-accent bg-accent-light"
+                      : "border-border hover:border-accent"
+                  }`}
+                >
+                  <span>{ao.itemname}</span>
+                  <span className="text-muted">+${Number(ao.price).toFixed(2)}</span>
+                </button>
+              ))}
             </div>
 
             <div className="flex gap-3">

@@ -6,6 +6,7 @@ import {
     getInventoryUsageHistoryByDateRange,
     getSalesHistoryByDateRange,
     hasZReportToday,
+    zGeneratedTime,
 } from "@/lib/queries/reports";
 
 // Returns a 401 if the current session belongs to a non-manager user.
@@ -54,10 +55,11 @@ export async function GET(request: Request) {
         const effectiveStartDate = hasValidRange ? startDate : defaultRange!.startDate;
         const effectiveEndDate = hasValidRange ? endDate : defaultRange!.endDate;
 
-        const [salesHistory, inventoryUsageHistory, zGeneratedToday, menuItems, inventoryItems] = await Promise.all([
+        const [salesHistory, inventoryUsageHistory, zGeneratedToday, zGeneratedAt, menuItems, inventoryItems] = await Promise.all([
             getSalesHistoryByDateRange(effectiveStartDate, effectiveEndDate, selectedMenuItemIds),
             getInventoryUsageHistoryByDateRange(effectiveStartDate, effectiveEndDate, selectedIngredientIds),
             hasZReportToday(),
+            zGeneratedTime(),
             getMenu(),
             getInventory(),
         ]);
@@ -66,6 +68,7 @@ export async function GET(request: Request) {
             salesHistory,
             inventoryUsageHistory,
             zGeneratedToday,
+            zGeneratedAt,
             menuOptions: menuItems.map((item) => ({ itemid: Number(item.itemid), itemname: String(item.itemname) })),
             inventoryOptions: inventoryItems.map((item) => ({
                 ingredientid: Number(item.ingredientid),
