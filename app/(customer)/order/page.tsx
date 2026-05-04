@@ -35,7 +35,7 @@ interface ChatMessage {
 }
 
 
-const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
+const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food", "Seasonal Drink"];
 const SUGAR_OPTIONS = ["120%", "100%", "75%", "50%", "25%", "0%"];
 
 declare global {
