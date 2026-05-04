@@ -306,7 +306,7 @@ export async function generateXReport(): Promise<ReportDetails> {
     const toIso = now.toISOString();
 
     const { rows: dayStart } = await pool.query(
-        `SELECT (CURRENT_DATE::timestamp AT TIME ZONE 'America/Chicago') AS start_of_day`
+        `SELECT DATE_TRUNC('day', NOW() AT TIME ZONE 'America/Chicago') AT TIME ZONE 'America/Chicago' AS start_of_day`
     );
     const fromIso = new Date(dayStart[0].start_of_day).toISOString();
 
@@ -347,11 +347,10 @@ export async function generateZReport(): Promise<ReportDetails> {
         await client.query("BEGIN");
 
         const { rows: dayStart } = await client.query(
-            `SELECT (CURRENT_DATE::timestamp AT TIME ZONE 'America/Chicago') AS start_of_day`
+            `SELECT DATE_TRUNC('day', NOW() AT TIME ZONE 'America/Chicago') AT TIME ZONE 'America/Chicago' AS start_of_day`
         );
         const fromIso = new Date(dayStart[0].start_of_day).toISOString();
 
-        // If a Z report already exists for today, return its data instead of throwing
         const { rows: existing } = await client.query(
             `SELECT id, generated_at, total_orders, total_revenue 
              FROM zreport_log 
@@ -375,14 +374,14 @@ export async function generateZReport(): Promise<ReportDetails> {
             };
         }
 
-        // No Z report yet — generate a fresh one
         const { rows: totalsRows } = await client.query(
             `SELECT COUNT(*)::int AS total_orders,
                     COALESCE(SUM(price), 0)::float8 AS total_revenue
              FROM orderhistory
-             WHERE "time" >= (CURRENT_DATE::timestamp AT TIME ZONE 'America/Chicago')
+             WHERE "time" >= DATE_TRUNC('day', NOW() AT TIME ZONE 'America/Chicago') AT TIME ZONE 'America/Chicago'
                AND "time" <= NOW()`
         );
+
 
         const totalOrders = Number(totalsRows[0].total_orders);
         const totalRevenue = Number(totalsRows[0].total_revenue);
