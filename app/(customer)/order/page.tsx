@@ -40,7 +40,7 @@ interface ChatMessage {
 }
 
 
-const CATEGORIES = ["Classic Drink", "Fruit Drink", "Food"];
+const CATEGORIES = ["Classic Drink", "Fruit Drink", "Seasonal Drink", "Food"];
 const SUGAR_OPTIONS = ["125%", "75%", "50%", "25%", "0%"];
 const SIZE_OPTIONS = [
   { label: "Small", value: "Small", price: 0.5 },
