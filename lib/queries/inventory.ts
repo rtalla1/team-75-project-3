@@ -22,11 +22,25 @@ export async function addInventoryItem(
     quantity: number,
     units: string
 ): Promise<InventoryRecord> {
-    const { rows } = await pool.query(
-        "INSERT INTO inventory (ingredientname, quantity, units) VALUES ($1, $2, $3) RETURNING ingredientid, ingredientname, quantity, units",
-        [ingredientName, quantity, units]
-    );
-    return rows[0];
+    const client = await pool.connect();
+    try {
+        await client.query("BEGIN");
+        const { rows: idRows } = await client.query(
+            "SELECT COALESCE(MAX(ingredientid), 0) + 1 AS next_id FROM inventory"
+        );
+        const nextId = Number(idRows[0]?.next_id ?? 1);
+        const { rows } = await client.query(
+            "INSERT INTO inventory (ingredientid, ingredientname, quantity, units) VALUES ($1, $2, $3, $4) RETURNING ingredientid, ingredientname, quantity, units",
+            [nextId, ingredientName, quantity, units]
+        );
+        await client.query("COMMIT");
+        return rows[0];
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
 }
 
 // Deletes an inventory item by its ID. Does nothing if the ID doesn't exist.
