@@ -589,10 +589,8 @@ export default function CustomerPage() {
                 </button>
               ))}
             </div>
-
-            {isDrink && (
-              <>
-                <p className="text-sm font-medium mb-2"><span>Size</span></p>
+            
+            <p className="text-sm font-medium mb-2"><span>Size</span></p>
                 <div className="grid grid-cols-2 gap-2 mb-5" role="group" aria-label="Size options">
                   {SIZE_OPTIONS.map((option) => (
                     <button
@@ -614,7 +612,9 @@ export default function CustomerPage() {
                     </button>
                   ))}
                 </div>
-
+              
+            {isDrink && (
+              <>
                 <p className="text-sm font-medium mb-2"><span>Ice Level</span></p>
                 <div className="grid grid-cols-3 gap-2 mb-5" role="group" aria-label="Ice level options">
                   {ICE_OPTIONS.map((option) => (
